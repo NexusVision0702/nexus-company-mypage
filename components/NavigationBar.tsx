@@ -3,10 +3,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function NavigationBar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [companyName, setCompanyName] = useState<string>('パートナー様');
 
   useEffect(() => {
@@ -23,8 +24,14 @@ export default function NavigationBar() {
     fetchCompanyName();
   }, []);
 
+  // ログアウト処理
+  const handleLogout = () => {
+    localStorage.removeItem('nexus_company_id');
+    router.push('/login');
+  };
+
   const navItems = [
-    { label: 'ホーム', href: '/' },
+    { label: 'ホーム', href: '/home' },
     { label: '企業情報・経営', href: '/overview' },
     { label: '本社・店舗情報', href: '/stores' },
     { label: '求人作成・プラン選択', href: '/jobs' },
@@ -47,7 +54,7 @@ export default function NavigationBar() {
       boxSizing: 'border-box',
       width: '100%'
     }}>
-      {/* 中央：メニュータブ群（文字サイズ1.25倍: 18.75px） */}
+      {/* 中央：メニュータブ群 */}
       <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -85,22 +92,47 @@ export default function NavigationBar() {
         })}
       </div>
 
-      {/* 右側：会社名表示バッジ */}
+      {/* 右側：会社名バッジ ＆ ログアウトボタン */}
       <div style={{
         position: 'absolute',
         right: '40px',
-        background: '#f0fdf4',
-        border: '1.5px solid #86efac',
-        padding: '8px 20px',
-        borderRadius: '8px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px'
+        gap: '12px'
       }}>
-        <span style={{ color: '#166534', fontSize: '15px', fontWeight: 'bold' }}>
-          {companyName}
-        </span>
+        <div style={{
+          background: '#f0fdf4',
+          border: '1.5px solid #86efac',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <span style={{ color: '#166534', fontSize: '15px', fontWeight: 'bold' }}>
+            {companyName}
+          </span>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          style={{
+            background: '#fee2e2',
+            color: '#991b1b',
+            border: '1.5px solid #fecaca',
+            padding: '8px 14px',
+            borderRadius: '8px',
+            fontSize: '13.5px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = '#fecaca'}
+          onMouseLeave={(e) => e.currentTarget.style.background = '#fee2e2'}
+        >
+          ログアウト
+        </button>
       </div>
     </nav>
   );

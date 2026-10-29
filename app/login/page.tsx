@@ -1,3 +1,4 @@
+// app/login/page.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -69,6 +70,9 @@ export default function LoginPage() {
         throw new Error(data.error || '認証コードが正しくありません。');
       }
 
+      // ログイン成功時に会社IDをローカルストレージに保存
+      localStorage.setItem('nexus_company_id', data.companyId || 'demo_company_001');
+
       router.push('/overview');
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -126,7 +130,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* 成功メッセージ（星マークを削除） */}
           {successMsg && (
             <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', marginBottom: '20px', fontWeight: '600', lineHeight: '1.4' }}>
               {successMsg}
