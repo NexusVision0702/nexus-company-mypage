@@ -53,8 +53,10 @@ export async function POST(request: Request) {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10分有効
 
+    // 企業データを上書きしないよう、認証コード専用のプレフィックス（code_）を用いた独立したアイテムを作成
     const codeItem = {
-      id: `code_${email}`, // ★ プレフィックスを verify-login-code 側と完全に統一！
+      id: `code_${email}`, // verify-login-code 側と完全に一致
+      type: 'verification_code',
       email,
       verificationCode,
       expiresAt,
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
       Item: codeItem,
     }));
 
-    // 4. Resend APIを直接 fetch で呼び出し（ネットワークエラー対策）
+    // 4. Resend APIを直接 fetch で呼び出し
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'メール送信機能の環境設定（RESEND_API_KEY）が不足しています。' }, { status: 500 });
@@ -116,7 +118,7 @@ export async function POST(request: Request) {
     console.log('メール送信成功:', resendData);
     return NextResponse.json({ success: true, message: '認証コードを送信しました。' });
 
-    } catch (error: any) {
+  } catch (error: any) {
     console.error('Login API 例外発生:', error);
     return NextResponse.json({ error: error.message || 'ログイン処理に失敗しました。' }, { status: 500 });
   }
