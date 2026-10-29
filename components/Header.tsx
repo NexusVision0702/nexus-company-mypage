@@ -34,14 +34,14 @@ export default function Header() {
         </div>
       </div>
 
-      {/* 中央：ロゴ ＆ タイトル */}
+      {/* 中央：ロゴ ＆ タイトル（「企業マイページ」を中央揃えに修正） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flexShrink: '0' }}>
         <img 
           src="/logo.png" 
           alt="ネクビジョン求人ロゴ" 
           style={{ height: '76px', width: 'auto', objectFit: 'contain' }} 
         />
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ 
             color: '#ffffff',
             fontSize: '28px', 
@@ -56,7 +56,7 @@ export default function Header() {
           </div>
           <div style={{ 
             color: '#ffffff', 
-            fontSize: '18.1px', /* 1.25倍に拡大 */
+            fontSize: '18.1px', 
             letterSpacing: '2px', 
             fontWeight: '700', 
             lineHeight: '1.0',
@@ -64,7 +64,7 @@ export default function Header() {
             opacity: 0.95,
             whiteSpace: 'nowrap'
           }}>
-            企業パートナー専用管理画面
+            企業マイページ
           </div>
         </div>
       </div>

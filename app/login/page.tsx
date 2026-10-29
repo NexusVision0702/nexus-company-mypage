@@ -73,7 +73,8 @@ export default function LoginPage() {
       // ログイン成功時に会社IDをローカルストレージに保存
       localStorage.setItem('nexus_company_id', data.companyId || 'demo_company_001');
 
-      router.push('/overview');
+      // ログイン後は最初にホーム画面（/home）へ飛ぶ
+      router.push('/home');
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -88,28 +89,9 @@ export default function LoginPage() {
         {/* ヘッダーセッション：キャラクター＆ロゴ */}
         <div style={{ background: 'linear-gradient(180deg, #ecfdf5 0%, #ffffff 100%)', padding: '36px 40px 24px 40px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', marginBottom: '16px' }}>
-            
-            {/* 1. ライオン2 (/lion2.png) */}
-            <img 
-              src="/lion2.png" 
-              alt="キャラクター2" 
-              style={{ width: '80px', height: '80px', objectFit: 'contain' }} 
-            />
-
-            {/* 2. ロゴ (/logo.png) */}
-            <img 
-              src="/logo.png" 
-              alt="ネクビジョ求人 ロゴ" 
-              style={{ width: '80px', height: '80px', objectFit: 'contain' }} 
-            />
-
-            {/* 3. ライオン1 (/lion1.png) */}
-            <img 
-              src="/lion1.png" 
-              alt="キャラクター1" 
-              style={{ width: '80px', height: '80px', objectFit: 'contain' }} 
-            />
-
+            <img src="/lion2.png" alt="キャラクター2" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+            <img src="/logo.png" alt="ネクビジョ求人 ロゴ" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+            <img src="/lion1.png" alt="キャラクター1" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
           </div>
 
           <h1 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>

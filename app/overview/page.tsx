@@ -1,4 +1,4 @@
-// app/overview/page.tsx (Without the manual button and modal)
+// app/overview/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -134,33 +134,33 @@ export default function CompanyOverviewPage() {
   const [mockSentCode, setMockSentCode] = useState('');
 
   const [formData, setFormData] = useState({
-    companyName: 'NexusVision株式会社',
-    corporateNumber: '8370001051493',
-    invoiceNumber: 'T1234567890123',
-    representativeName: '挾間 義尚',
-    licenseNumber: '許可番号なし',
-    capital: '10,000,000',
+    companyName: '',
+    corporateNumber: '',
+    invoiceNumber: '',
+    representativeName: '',
+    licenseNumber: '',
+    capital: '',
     establishYear: '2026',
-    establishMonth: '10',
+    establishMonth: '04',
     establishDay: '01',
-    industry: ['ソフトウェア開発・エンジニア', 'フロントエンドエンジニア'],
-    employeeRegular: '15',
-    employeePart: '5',
-    contactName: '挾間 義尚',
-    accountingContactName: '経理担当',
-    phone: '090-0000-0000',
-    accountingEmail: 'accounting@nexus-vision.net',
-    newAccountingEmail: 'accounting@nexus-vision.net',
-    homepageUrl: 'https://company.nexus-vision.net',
+    industry: [] as string[],
+    employeeRegular: '',
+    employeePart: '',
+    contactName: '',
+    accountingContactName: '',
+    phone: '',
+    accountingEmail: '',
+    newAccountingEmail: '',
+    homepageUrl: '',
     branchType: '本社',
-    postalCode: '9830852',
-    prefecture: '宮城県',
-    city: '仙台市宮城野区',
-    addressSub: '榴岡1-2-3',
-    businessPhone: '022-000-0000',
-    businessEmail: 'support@nexus-vision.net',
-    businessDescription: 'ネクビジョ求人プラットフォームの運営およびシステム開発',
-    newsletter: true
+    postalCode: '',
+    prefecture: '',
+    city: '',
+    addressSub: '',
+    businessPhone: '',
+    businessEmail: '',
+    businessDescription: '',
+    newsletter: false
   });
 
   const isAnyEditing = editAuth || editBasic || editContact || editBusiness || authStep !== 'idle';
@@ -190,14 +190,56 @@ export default function CompanyOverviewPage() {
     return () => document.removeEventListener('click', handleClick, true);
   }, [isAnyEditing]);
 
+  // ★ DynamoDBからデータを取得してフォームにセット
   useEffect(() => {
     const fetchCompanyData = async () => {
-      const companyId = localStorage.getItem('nexus_company_id');
-      if (!companyId) {
-        localStorage.setItem('nexus_company_id', 'demo_company_001');
+      try {
+        const companyId = 'comp_1793266043558';
+        localStorage.setItem('nexus_company_id', companyId);
+
+        const res = await fetch(`/api/company?companyId=${companyId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.company) {
+            const comp = data.company;
+            setFormData(prev => ({
+              ...prev,
+              companyName: comp.companyName || '',
+              corporateNumber: comp.corporateNumber || '',
+              representativeName: comp.representativeName || '',
+              invoiceNumber: comp.invoiceNumber || '',
+              capital: comp.capital || '',
+              licenseNumber: comp.licenseNumber || '',
+              employeeRegular: comp.employeeRegular || '',
+              employeePart: comp.employeePart || '',
+              establishYear: comp.establishYear || '2026',
+              establishMonth: comp.establishMonth || '04',
+              establishDay: comp.establishDay || '01',
+              industry: Array.isArray(comp.industry) ? comp.industry : [],
+              contactName: comp.contactName || '',
+              accountingContactName: comp.accountingContactName || '',
+              phone: comp.phone || '',
+              accountingEmail: comp.email || comp.accountingEmail || '',
+              homepageUrl: comp.homepageUrl || '',
+              branchType: comp.branchType || '本社',
+              postalCode: comp.postalCode || '',
+              prefecture: comp.prefecture || '',
+              city: comp.city || '',
+              addressSub: comp.addressSub || '',
+              businessPhone: comp.businessPhone || '',
+              businessEmail: comp.email || comp.businessEmail || '',
+              businessDescription: comp.businessDescription || '',
+              newsletter: comp.newsletter ?? false,
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('企業データの取得に失敗しました:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
+
     fetchCompanyData();
   }, []);
 
@@ -487,15 +529,15 @@ export default function CompanyOverviewPage() {
           <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editBasic ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>インボイス登録番号</label>
-              <input type="text" name="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} disabled={!editBasic} style={getInputStyle(editBasic)} />
+              <input type="text" name="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} placeholder="例: T1234567890123" disabled={!editBasic} style={getInputStyle(editBasic)} />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editBasic ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>代表者名</label>
-              <input type="text" name="representativeName" value={formData.representativeName} onChange={handleChange} disabled={!editBasic} style={getInputStyle(editBasic)} />
+              <input type="text" name="representativeName" value={formData.representativeName} onChange={handleChange} placeholder="例: 山田 太郎" disabled={!editBasic} style={getInputStyle(editBasic)} />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editBasic ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>許認可・資格の有無</label>
-              <input type="text" name="licenseNumber" value={formData.licenseNumber} onChange={handleChange} disabled={!editBasic} style={getInputStyle(editBasic)} />
+              <input type="text" name="licenseNumber" value={formData.licenseNumber} onChange={handleChange} placeholder="例: 許可番号なし" disabled={!editBasic} style={getInputStyle(editBasic)} />
             </div>
             
             <div>
@@ -590,19 +632,19 @@ export default function CompanyOverviewPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editContact ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ご担当者名</label>
-                <input type="text" name="contactName" value={formData.contactName} onChange={handleChange} disabled={!editContact} style={getInputStyle(editContact)} />
+                <input type="text" name="contactName" value={formData.contactName} onChange={handleChange} placeholder="例: 山田 太郎" disabled={!editContact} style={getInputStyle(editContact)} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editContact ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>経理ご担当者名 (部署名)</label>
-                <input type="text" name="accountingContactName" value={formData.accountingContactName} onChange={handleChange} disabled={!editContact} style={getInputStyle(editContact)} />
+                <input type="text" name="accountingContactName" value={formData.accountingContactName} onChange={handleChange} placeholder="例: 経理部 鈴木" disabled={!editContact} style={getInputStyle(editContact)} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editContact ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>連絡先電話番号</label>
-                <input type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="例: 080-4276-2882" disabled={!editContact} style={getInputStyle(editContact)} />
+                <input type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="例: 080-0000-0000" disabled={!editContact} style={getInputStyle(editContact)} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editContact ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>請求書送付用メールアドレス</label>
-                <input type="email" name="accountingEmail" value={formData.accountingEmail} disabled style={{ width: '100%', padding: '11px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f1f5f9', color: '#0f172a', fontSize: '14px', boxSizing: 'border-box' }} />
+                <input type="email" name="accountingEmail" value={formData.accountingEmail} placeholder="未登録" disabled style={{ width: '100%', padding: '11px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f1f5f9', color: '#0f172a', fontSize: '14px', boxSizing: 'border-box' }} />
               </div>
             </div>
 
@@ -653,7 +695,7 @@ export default function CompanyOverviewPage() {
           <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editBusiness ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ホームページURL</label>
-              <input type="text" name="homepageUrl" value={formData.homepageUrl} onChange={handleChange} disabled={!editBusiness} style={{ ...getInputStyle(editBusiness), width: '100%' }} />
+              <input type="text" name="homepageUrl" value={formData.homepageUrl} onChange={handleChange} placeholder="例: https://example.com" disabled={!editBusiness} style={{ ...getInputStyle(editBusiness), width: '100%' }} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
@@ -710,7 +752,7 @@ export default function CompanyOverviewPage() {
                     name="prefecture" 
                     value={formData.prefecture} 
                     onChange={handleChange} 
-                    placeholder="自動入力" 
+                    placeholder="自動入力または手動入力" 
                     disabled={!editBusiness} 
                     style={getInputStyle(editBusiness)} 
                   />
@@ -722,7 +764,7 @@ export default function CompanyOverviewPage() {
                     name="city" 
                     value={formData.city} 
                     onChange={handleChange} 
-                    placeholder="自動入力" 
+                    placeholder="自動入力または手動入力" 
                     disabled={!editBusiness} 
                     style={getInputStyle(editBusiness)} 
                   />
@@ -745,7 +787,7 @@ export default function CompanyOverviewPage() {
 
             <div>
               <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: editBusiness ? '#166534' : '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>事業内容 (必須)</label>
-              <textarea name="businessDescription" value={formData.businessDescription} onChange={handleChange} disabled={!editBusiness} rows={4} style={{ ...getInputStyle(editBusiness), resize: 'vertical', lineHeight: '1.5' }} />
+              <textarea name="businessDescription" value={formData.businessDescription} onChange={handleChange} placeholder="事業内容を入力してください" disabled={!editBusiness} rows={4} style={{ ...getInputStyle(editBusiness), resize: 'vertical', lineHeight: '1.5' }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: editBusiness ? '#ffffff' : '#f1f5f9', padding: '14px 18px', borderRadius: '10px', border: editBusiness ? '1.5px solid #166534' : '1px solid #cbd5e1' }}>
               <input type="checkbox" name="newsletter" id="newsletter" checked={formData.newsletter} onChange={handleChange} disabled={!editBusiness} style={{ width: '18px', height: '18px', accentColor: '#166534', cursor: editBusiness ? 'pointer' : 'default' }} />

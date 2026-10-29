@@ -8,12 +8,11 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // ローカルストレージに会社IDがあるかで判定
     const companyId = localStorage.getItem('nexus_company_id');
     if (!companyId) {
       router.replace('/login');
     } else {
-      router.replace('/overview');
+      router.replace('/home');
     }
   }, [router]);
 
