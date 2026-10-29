@@ -2,21 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, doc, getDocs, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCTI6ZylCTzLGXxnuLVlQb1ccmhUAMpxm0",
-  authDomain: "nexus-job-board-d042c.firebaseapp.com",
-  projectId: "nexus-job-board-d042c",
-  storageBucket: "nexus-job-board-d042c.firebasestorage.app",
-  messagingSenderId: "266729846625",
-  appId: "1:266729846625:web:b5f7296cc7bae2017e3720",
-  measurementId: "G-ZML9CWEG75"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
 
 interface JobItem {
   id: string;
@@ -103,7 +88,7 @@ const demoJobs: JobItem[] = [
 export default function JobsPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [jobs, setJobs] = useState<JobItem[]>(demoJobs);
 
   // 絞り込み用のステート（選択式）
   const [selectedTitle, setSelectedTitle] = useState<string>('すべて');
@@ -117,85 +102,22 @@ export default function JobsPage() {
     if (!id) {
       localStorage.setItem('nexus_company_id', 'demo_company_001');
       setCompanyId('demo_company_001');
-      setJobs(demoJobs);
-      setLoading(false);
-      return;
+    } else {
+      setCompanyId(id);
     }
-    setCompanyId(id);
-    fetchJobs(id);
+    setLoading(false);
   }, []);
-
-  const fetchJobs = async (cId: string) => {
-    try {
-      const q = query(collection(db, 'jobs'), where('companyId', '==', cId));
-      const querySnapshot = await getDocs(q);
-      const loadedJobs: JobItem[] = [];
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : (data.createdAt || '2026-06-01');
-        const duration = data.duration || '2週間';
-        const period = calculatePeriod(createdAt, duration);
-
-        loadedJobs.push({
-          id: docSnap.id,
-          title: data.title || '',
-          employmentType: data.employmentType || '正社員',
-          salary: data.salary || '',
-          location: data.location || '住所未登録',
-          plan: data.plan || 'Sプラン (200,000円/週間)',
-          duration: duration,
-          createdAt: createdAt,
-          startDate: period.start,
-          endDate: period.end,
-          viewCount: data.viewCount || 12,
-          applicantCount: data.applicantCount || 1,
-          status: data.status === '停止中' ? '停止中' : '公開中',
-          postingLocationInfo: data.postingLocationInfo || { name: '本社', address: '' }
-        });
-      });
-
-      if (loadedJobs.length === 0) {
-        setJobs(demoJobs);
-      } else {
-        setJobs(loadedJobs);
-      }
-    } catch (e) {
-      console.error('求人取得エラー:', e);
-      setJobs(demoJobs);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStatusChange = async (index: number, newStatus: string) => {
     const updated = [...jobs];
     updated[index].status = newStatus;
     setJobs(updated);
-
-    const job = updated[index];
-    if (job.id.startsWith('demo_')) return;
-
-    try {
-      await updateDoc(doc(db, 'jobs', job.id), { status: newStatus });
-    } catch (e: any) {
-      console.error('ステータス更新失敗:', e.message);
-    }
   };
 
   const handleDeleteJob = async (id: string) => {
     if (!confirm('この求人を削除してもよろしいですか？')) return;
-    if (id.startsWith('demo_')) {
-      setJobs(jobs.filter(job => job.id !== id));
-      alert('デモ求人を削除しました。');
-      return;
-    }
-    try {
-      await deleteDoc(doc(db, 'jobs', id));
-      setJobs(jobs.filter(job => job.id !== id));
-      alert('求人を削除しました。');
-    } catch (e: any) {
-      alert('削除失敗: ' + e.message);
-    }
+    setJobs(jobs.filter(job => job.id !== id));
+    alert('求人を削除しました。');
   };
 
   // 選択肢用のユニークなリストを生成

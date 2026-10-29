@@ -2,21 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCTI6ZylCTzLGXxnuLVlQb1ccmhUAMpxm0",
-  authDomain: "nexus-job-board-d042c.firebaseapp.com",
-  projectId: "nexus-job-board-d042c",
-  storageBucket: "nexus-job-board-d042c.firebasestorage.app",
-  messagingSenderId: "266729846625",
-  appId: "1:266729846625:web:b5f7296cc7bae2017e3720",
-  measurementId: "G-ZML9CWEG75"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
 
 const industryOptions = [
   'ソフトウェア開発・エンジニア',
@@ -136,9 +121,9 @@ export default function CompanyOverviewPage() {
   const [editBusiness, setEditBusiness] = useState<boolean>(false);
 
   const [authData, setAuthData] = useState({
-    email: '',
-    newEmail: '',
-    password: '',
+    email: 'yoshihisahasama@gmail.com',
+    newEmail: 'yoshihisahasama@gmail.com',
+    password: '••••••••',
     newPassword: '',
     confirmPassword: ''
   });
@@ -149,32 +134,32 @@ export default function CompanyOverviewPage() {
   const [mockSentCode, setMockSentCode] = useState('');
 
   const [formData, setFormData] = useState({
-    companyName: '',
-    corporateNumber: '',
-    invoiceNumber: '',
-    representativeName: '',
-    licenseNumber: '',
-    capital: '',
+    companyName: 'NexusVision株式会社',
+    corporateNumber: '8370001051493',
+    invoiceNumber: 'T1234567890123',
+    representativeName: '挾間 義尚',
+    licenseNumber: '許可番号なし',
+    capital: '10,000,000',
     establishYear: '2026',
     establishMonth: '10',
     establishDay: '01',
-    industry: [] as string[],
-    employeeRegular: '',
-    employeePart: '',
-    contactName: '',
-    accountingContactName: '',
-    phone: '',
-    accountingEmail: '',
-    newAccountingEmail: '',
-    homepageUrl: '',
+    industry: ['ソフトウェア開発・エンジニア', 'フロントエンドエンジニア'],
+    employeeRegular: '15',
+    employeePart: '5',
+    contactName: '挾間 義尚',
+    accountingContactName: '経理担当',
+    phone: '090-0000-0000',
+    accountingEmail: 'accounting@nexus-vision.net',
+    newAccountingEmail: 'accounting@nexus-vision.net',
+    homepageUrl: 'https://company.nexus-vision.net',
     branchType: '本社',
-    postalCode: '',
-    prefecture: '',
-    city: '',
-    addressSub: '',
-    businessPhone: '',
-    businessEmail: '',
-    businessDescription: '',
+    postalCode: '9830852',
+    prefecture: '宮城県',
+    city: '仙台市宮城野区',
+    addressSub: '榴岡1-2-3',
+    businessPhone: '022-000-0000',
+    businessEmail: 'support@nexus-vision.net',
+    businessDescription: 'ネクビジョ求人プラットフォームの運営およびシステム開発',
     newsletter: true
   });
 
@@ -209,80 +194,9 @@ export default function CompanyOverviewPage() {
     const fetchCompanyData = async () => {
       const companyId = localStorage.getItem('nexus_company_id');
       if (!companyId) {
-        window.location.href = '/';
-        return;
+        localStorage.setItem('nexus_company_id', 'demo_company_001');
       }
-      try {
-        const docRef = doc(db, 'companies', companyId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data() as any;
-          
-          let loadedIndustry = data.industry;
-          if (typeof loadedIndustry === 'string') {
-            loadedIndustry = loadedIndustry ? [loadedIndustry] : [];
-          } else if (!Array.isArray(loadedIndustry)) {
-            loadedIndustry = [];
-          }
-
-          let y = data.establishYear || '2026';
-          let m = data.establishMonth || '10';
-          let d = data.establishDay || '01';
-          if (data.establishmentDate && data.establishmentDate.includes('-')) {
-            const parts = data.establishmentDate.split('-');
-            if (parts.length >= 3) {
-              y = parts[0];
-              m = parts[1];
-              d = parts[2];
-            }
-          }
-
-          let rawCapital = data.capital || '';
-          const numOnly = rawCapital.replace(/[^0-9]/g, '');
-          const formattedCapital = numOnly ? Number(numOnly).toLocaleString() : '';
-
-          setAuthData(prev => ({
-            ...prev,
-            email: data.email || 'yoshihisahasama@gmail.com',
-            newEmail: data.email || 'yoshihisahasama@gmail.com',
-            password: data.password || '••••••••'
-          }));
-
-          setFormData({
-            companyName: data.companyName || data.name || 'NexusVision株式会社',
-            corporateNumber: data.corporateNumber || '8370001051493',
-            invoiceNumber: data.invoiceNumber || '',
-            representativeName: data.representativeName || '',
-            licenseNumber: data.licenseNumber || '',
-            capital: formattedCapital,
-            establishYear: y,
-            establishMonth: m,
-            establishDay: d,
-            industry: loadedIndustry,
-            employeeRegular: data.employeeRegular || data.employeeCountRegular || '',
-            employeePart: data.employeePart || data.employeeCountPart || '',
-            contactName: data.contactName || '',
-            accountingContactName: data.accountingContactName || '',
-            phone: data.phone || '',
-            accountingEmail: data.accountingEmail || '',
-            newAccountingEmail: data.accountingEmail || '',
-            homepageUrl: data.homepageUrl || '',
-            branchType: data.branchType || '本社',
-            postalCode: data.postalCode || '',
-            prefecture: data.prefecture || '',
-            city: data.city || '',
-            addressSub: data.addressSub || data.address || '',
-            businessPhone: data.businessPhone || '',
-            businessEmail: data.businessEmail || '',
-            businessDescription: data.businessDescription || '',
-            newsletter: data.newsletter !== undefined ? data.newsletter : true
-          });
-        }
-      } catch (e) {
-        console.error('データ取得エラー:', e);
-      } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     };
     fetchCompanyData();
   }, []);
@@ -408,33 +322,21 @@ export default function CompanyOverviewPage() {
       return;
     }
 
-    const companyId = localStorage.getItem('nexus_company_id');
-    if (!companyId) return;
-
-    try {
-      const docRef = doc(db, 'companies', companyId);
-      if (authType === 'email') {
-        await updateDoc(docRef, { email: authData.newEmail });
-        setAuthData(prev => ({ ...prev, email: authData.newEmail }));
-        alert('メインメールアドレスの変更が完了しました！');
-      } else if (authType === 'password') {
-        await updateDoc(docRef, { password: authData.newPassword });
-        setAuthData(prev => ({ ...prev, password: '••••••••', newPassword: '', confirmPassword: '' }));
-        alert('パスワードの変更が完了しました！');
-      } else if (authType === 'invoice_email') {
-        await updateDoc(docRef, { accountingEmail: formData.newAccountingEmail });
-        setFormData(prev => ({ ...prev, accountingEmail: prev.newAccountingEmail }));
-        alert('請求書送付用メールアドレスの変更が完了しました！');
-        setEditContact(false);
-      }
-      setAuthStep('idle');
-      setAuthType(null);
-      setVerificationCodeInput('');
-      setEditAuth(false);
-    } catch (e) {
-      console.error('認証情報更新エラー:', e);
-      alert('更新に失敗しました。');
+    if (authType === 'email') {
+      setAuthData(prev => ({ ...prev, email: authData.newEmail }));
+      alert('メインメールアドレスの変更が完了しました！');
+    } else if (authType === 'password') {
+      setAuthData(prev => ({ ...prev, password: '••••••••', newPassword: '', confirmPassword: '' }));
+      alert('パスワードの変更が完了しました！');
+    } else if (authType === 'invoice_email') {
+      setFormData(prev => ({ ...prev, accountingEmail: prev.newAccountingEmail }));
+      alert('請求書送付用メールアドレスの変更が完了しました！');
+      setEditContact(false);
     }
+    setAuthStep('idle');
+    setAuthType(null);
+    setVerificationCodeInput('');
+    setEditAuth(false);
   };
 
   const handleSaveSection = async (sectionName: string) => {
@@ -445,26 +347,10 @@ export default function CompanyOverviewPage() {
       }
     }
 
-    const companyId = localStorage.getItem('nexus_company_id');
-    if (!companyId) return;
-    try {
-      const docRef = doc(db, 'companies', companyId);
-      const establishmentDateFormatted = `${formData.establishYear}-${formData.establishMonth}-${formData.establishDay}`;
-      const fullAddress = `〒${formData.postalCode} ${formData.prefecture}${formData.city}${formData.addressSub}`;
-      
-      await updateDoc(docRef, { 
-        ...formData, 
-        establishmentDate: establishmentDateFormatted,
-        address: fullAddress
-      });
-      alert(`${sectionName}を更新しました！`);
-      if (sectionName === '基本情報') setEditBasic(false);
-      if (sectionName === '連絡先情報') setEditContact(false);
-      if (sectionName === '事業・詳細情報') setEditBusiness(false);
-    } catch (e) {
-      console.error('保存エラー:', e);
-      alert('保存に失敗しました。');
-    }
+    alert(`${sectionName}を更新しました！`);
+    if (sectionName === '基本情報') setEditBasic(false);
+    if (sectionName === '連絡先情報') setEditContact(false);
+    if (sectionName === '事業・詳細情報') setEditBusiness(false);
   };
 
   if (loading) return <div style={{ padding: '80px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>読み込み中...</div>;

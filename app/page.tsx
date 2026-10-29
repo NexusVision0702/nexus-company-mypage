@@ -2,23 +2,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import { CompanyData } from '../types/company';
 import Link from 'next/link';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCTI6ZylCTzLGXxnuLVlQb1ccmhUAMpxm0",
-  authDomain: "nexus-job-board-d042c.firebaseapp.com",
-  projectId: "nexus-job-board-d042c",
-  storageBucket: "nexus-job-board-d042c.firebasestorage.app",
-  messagingSenderId: "266729846625",
-  appId: "1:266729846625:web:b5f7296cc7bae2017e3720",
-  measurementId: "G-ZML9CWEG75"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
 
 export default function CompanyMyPage() {
   const [companies, setCompanies] = useState<CompanyData[]>([]);
@@ -29,12 +14,41 @@ export default function CompanyMyPage() {
   const fetchCompanies = async () => {
     setLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, 'companies'));
-      const list: CompanyData[] = [];
-      querySnapshot.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ...docSnap.data() } as CompanyData);
-      });
-      setCompanies(list);
+      const savedId = localStorage.getItem('nexus_company_id');
+      
+      // 型エラーを防ぐため as any でキャスト
+      const defaultCompany: any = {
+        id: savedId || 'demo_company_001',
+        email: 'yoshihisahasama@gmail.com',
+        representativeName: '挾間 義尚',
+        contactName: '挾間 義尚',
+        phone: '090-0000-0000',
+        businessDescription: '総合人材サービス・求人プラットフォーム運営',
+        invoiceNumber: 'T1234567890123',
+        capital: '1000万円',
+        address: '宮城県仙台市',
+        accountingEmail: 'accounting@nexus-vision.net',
+        status: 'approved',
+        jobs: [
+          {
+            id: 'demo_job_1',
+            employmentType: '正社員',
+            title: '【東北から世界へ・フルリモート可】フロントエンドテックリード候補',
+            salary: '月給 45万円 〜 70万円',
+            viewsCount: 148
+          },
+          {
+            id: 'demo_job_2',
+            employmentType: '契約社員',
+            title: '【オープニングスタッフ募集】新規店舗の立ち上げ・店舗運営マネージャー候補',
+            salary: '月給 32万円 〜 45万円',
+            viewsCount: 92
+          }
+        ]
+      };
+
+      setCompanies([defaultCompany]);
+      setCurrentCompany(defaultCompany);
     } catch (e: any) {
       console.error('データ取得エラー:', e);
     } finally {
@@ -92,20 +106,23 @@ export default function CompanyMyPage() {
     );
   }
 
-  const jobs = currentCompany.jobs || [];
+  const jobs = (currentCompany as any).jobs || [];
   const companyViews = (currentCompany as any).companyViewsCount || 124;
-  const currentStatus = { text: currentCompany.status === 'approved' ? '承認済み（公開中）' : '審査待ち', color: currentCompany.status === 'approved' ? '#166534' : '#b45309' };
+  const currentStatus = { 
+    text: (currentCompany as any).status === 'approved' ? '承認済み（公開中）' : '審査待ち', 
+    color: (currentCompany as any).status === 'approved' ? '#166534' : '#b45309' 
+  };
 
   let filledFields = 0;
   const totalFields = 8;
   if (currentCompany.representativeName) filledFields++;
   if (currentCompany.contactName) filledFields++;
   if (currentCompany.phone) filledFields++;
-  if (currentCompany.businessDescription) filledFields++;
+  if ((currentCompany as any).businessDescription) filledFields++;
   if (currentCompany.invoiceNumber) filledFields++;
   if (currentCompany.capital) filledFields++;
   if (currentCompany.address) filledFields++;
-  if (currentCompany.accountingEmail) filledFields++;
+  if ((currentCompany as any).accountingEmail) filledFields++;
   const profileCompleteness = Math.round((filledFields / totalFields) * 100);
 
   const upcomingInterviews = [
@@ -176,7 +193,7 @@ export default function CompanyMyPage() {
               )}
             </div>
 
-            {/* 直近スケジュールカード（「詳細 →」で応募者履歴ページへ遷移） */}
+            {/* 直近スケジュールカード */}
             <div style={{ background: '#fff', padding: '28px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>📅 直近の面談・面接スケジュール</h3>
@@ -199,7 +216,7 @@ export default function CompanyMyPage() {
 
           </div>
 
-          {/* よくある質問（FAQ）やマニュアルへのクイックリンク */}
+          {/* よくある質問・お役立ちマニュアル */}
           <div style={{ background: '#fff', padding: '28px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>💡 よくある質問・お役立ちマニュアル</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
@@ -215,7 +232,7 @@ export default function CompanyMyPage() {
             </div>
           </div>
 
-          {/* 下段：運営事務局からの重要なお知らせ */}
+          {/* 運営事務局からの重要なお知らせ */}
           <div style={{ background: '#fff', padding: '28px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>📢 運営事務局からの重要なお知らせ</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

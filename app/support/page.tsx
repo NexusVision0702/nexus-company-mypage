@@ -2,21 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCTI6ZylCTzLGXxnuLVlQb1ccmhUAMpxm0",
-  authDomain: "nexus-job-board-d042c.firebaseapp.com",
-  projectId: "nexus-job-board-d042c",
-  storageBucket: "nexus-job-board-d042c.firebasestorage.app",
-  messagingSenderId: "266729846625",
-  appId: "1:266729846625:web:b5f7296cc7bae2017e3720",
-  measurementId: "G-ZML9CWEG75"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
 
 interface ChatMessage {
   id: string;
@@ -50,6 +35,17 @@ export default function SupportPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(demoMessages);
   const [inputText, setInputText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = localStorage.getItem('nexus_company_id');
+    if (!id) {
+      localStorage.setItem('nexus_company_id', 'demo_company_001');
+      setCompanyId('demo_company_001');
+    } else {
+      setCompanyId(id);
+    }
+  }, []);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();

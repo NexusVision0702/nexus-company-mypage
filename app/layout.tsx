@@ -2,8 +2,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header";
-import NavigationBar from "@/components/NavigationBar";
+import ClientLayout from "@/components/ClientLayout"; // 追加
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,16 +26,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#f8fafc] m-0 p-0 overflow-x-hidden">
-        {/* どのページに移動しても常に最上部に固定されるヘッダー＆ナビゲーション */}
-        <div style={{ position: 'sticky', top: 0, zIndex: 100, width: '100%' }}>
-          <Header />
-          <NavigationBar />
-        </div>
-        
-        {/* 各ページのコンテンツがここに流れ込みます */}
-        <main className="flex-1">
+        <ClientLayout>
           {children}
-        </main>
+        </ClientLayout>
       </body>
     </html>
   );

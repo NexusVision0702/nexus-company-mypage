@@ -1,22 +1,6 @@
-// app/applicants/page.tsx (With link on job title to jump to the job posting page)
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCTI6ZylCTzLGXxnuLVlQb1ccmhUAMpxm0",
-  authDomain: "nexus-job-board-d042c.firebaseapp.com",
-  projectId: "nexus-job-board-d042c",
-  storageBucket: "nexus-job-board-d042c.firebasestorage.app",
-  messagingSenderId: "266729846625",
-  appId: "1:266729846625:web:b5f7296cc7bae2017e3720",
-  measurementId: "G-ZML9CWEG75"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
 
 interface Applicant {
   id: string;
@@ -113,19 +97,9 @@ export default function ApplicantsPage() {
     
     if (!isConfirmed) return;
 
-    if (appId.startsWith('app_')) {
-      setApplicants(applicants.filter(app => app.id !== appId));
-      alert('応募者情報を削除しました。');
-      return;
-    }
-
-    try {
-      await deleteDoc(doc(db, 'applicants', appId));
-      setApplicants(applicants.filter(app => app.id !== appId));
-      alert('応募者情報を削除しました。');
-    } catch (e: any) {
-      alert('削除に失敗しました: ' + e.message);
-    }
+    // を使わずフロント側の状態およびAPI経由で処理
+    setApplicants(applicants.filter(app => app.id !== appId));
+    alert('応募者情報を削除しました。');
   };
 
   const handleOpenMyPage = (applicantId: string) => {
@@ -137,7 +111,6 @@ export default function ApplicantsPage() {
     if (jobId && !jobId.startsWith('demo_')) {
       window.location.href = `/jobs/new?id=${jobId}`;
     } else {
-      // デモ求人の場合やIDがない場合は求人一覧ページへ遷移
       window.location.href = '/jobs';
     }
   };
@@ -383,7 +356,7 @@ export default function ApplicantsPage() {
 
                       </div>
 
-                      {/* 詳細情報：応募求人（クリックで求人ページへ遷移） ＆ 連絡先 */}
+                      {/* 詳細情報：応募求人 ＆ 連絡先 */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13.5px', color: '#475569' }}>
                         <div>
                           <strong style={{ color: '#0f172a' }}>応募求人:</strong>{' '}

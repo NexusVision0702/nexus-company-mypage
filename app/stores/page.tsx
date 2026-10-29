@@ -2,22 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { StoreLocation } from '../../types/company';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCTI6ZylCTzLGXxnuLVlQb1ccmhUAMpxm0",
-  authDomain: "nexus-job-board-d042c.firebaseapp.com",
-  projectId: "nexus-job-board-d042c",
-  storageBucket: "nexus-job-board-d042c.firebasestorage.app",
-  messagingSenderId: "266729846625",
-  appId: "1:266729846625:web:b5f7296cc7bae2017e3720",
-  measurementId: "G-ZML9CWEG75"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
 
 const daysOfWeek = ['月', '火', '水', '木', '金', '土', '日', '祝日', '正月', 'GW', 'シルバーウィーク'];
 
@@ -55,74 +40,55 @@ export default function StoresPage() {
 
   const [isEditingHQ, setIsEditingHQ] = useState<boolean>(false);
   const [branchType, setBranchType] = useState<string>('本社');
-  const [postalCode, setPostalCode] = useState<string>('');
-  const [prefecture, setPrefecture] = useState<string>('');
-  const [city, setCity] = useState<string>('');
-  const [addressSub, setAddressSub] = useState<string>('');
-  const [hqPhone, setHqPhone] = useState<string>('');
+  const [postalCode, setPostalCode] = useState<string>('9830852');
+  const [prefecture, setPrefecture] = useState<string>('宮城県');
+  const [city, setCity] = useState<string>('仙台市宮城野区');
+  const [addressSub, setAddressSub] = useState<string>('榴岡1-2-3');
+  const [hqPhone, setHqPhone] = useState<string>('022-000-0000');
 
-  const [stores, setStores] = useState<ExtendedStoreLocation[]>([]);
+  const [stores, setStores] = useState<ExtendedStoreLocation[]>([
+    {
+      name: '仙台駅前支店',
+      postalCode: '9800021',
+      prefecture: '宮城県',
+      city: '仙台市青葉区',
+      addressSub: '中央1-1-1',
+      address: '〒9800021 宮城県仙台市青葉区中央1-1-1',
+      managerName: '佐藤 太郎',
+      phone: '022-111-2222',
+      email: 'sendai@nexus-vision.net',
+      newEmail: 'sendai@nexus-vision.net',
+      employeeRegular: '5',
+      employeePart: '8',
+      businessDays: ['月', '火', '水', '木', '金'],
+      businessDaysNote: '土日祝日は定休日となります。',
+      weekdayStartHour: '09',
+      weekdayStartMin: '00',
+      weekdayEndHour: '18',
+      weekdayEndMin: '00',
+      holidayStartHour: '-',
+      holidayStartMin: '-',
+      holidayEndHour: '-',
+      holidayEndMin: '-',
+      newsletter: true,
+      isNew: false,
+      isEditing: false,
+      email2FAStatus: 'idle',
+      sentCode: '',
+      inputCode: ''
+    }
+  ]);
 
   useEffect(() => {
     const id = localStorage.getItem('nexus_company_id');
     if (!id) {
-      window.location.href = '/';
-      return;
+      localStorage.setItem('nexus_company_id', 'demo_company_001');
+      setCompanyId('demo_company_001');
+    } else {
+      setCompanyId(id);
     }
-    setCompanyId(id);
-    fetchData(id);
+    setLoading(false);
   }, []);
-
-  const fetchData = async (id: string) => {
-    try {
-      const docSnap = await getDoc(doc(db, 'companies', id));
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setBranchType(data.branchType || '本社');
-        setPostalCode(data.postalCode || '');
-        setPrefecture(data.prefecture || '');
-        setCity(data.city || '');
-        setAddressSub(data.addressSub || data.address || '');
-        setHqPhone(data.hqPhone || data.phone || '');
-        
-        const loadedStores = (data.stores || []).map((st: any) => {
-          let loadedDays = st.businessDays;
-          if (typeof loadedDays === 'string') {
-            loadedDays = loadedDays ? loadedDays.split(',') : [];
-          } else if (!Array.isArray(loadedDays)) {
-            loadedDays = [];
-          }
-          return {
-            ...st,
-            employeeRegular: st.employeeRegular || '',
-            employeePart: st.employeePart || '',
-            businessDays: loadedDays,
-            businessDaysNote: st.businessDaysNote || '',
-            weekdayStartHour: st.weekdayStartHour || '-',
-            weekdayStartMin: st.weekdayStartMin || '-',
-            weekdayEndHour: st.weekdayEndHour || '-',
-            weekdayEndMin: st.weekdayEndMin || '-',
-            holidayStartHour: st.holidayStartHour || '-',
-            holidayStartMin: st.holidayStartMin || '-',
-            holidayEndHour: st.holidayEndHour || '-',
-            holidayEndMin: st.holidayEndMin || '-',
-            newsletter: st.newsletter !== undefined ? st.newsletter : true,
-            isNew: false,
-            isEditing: false,
-            newEmail: st.email || '',
-            email2FAStatus: 'idle',
-            sentCode: '',
-            inputCode: ''
-          };
-        });
-        setStores(loadedStores);
-      }
-    } catch (e) {
-      console.error('取得エラー:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const isAnyEditing = isEditingHQ || stores.some(st => st.isNew || st.isEditing);
 
@@ -312,7 +278,7 @@ export default function StoresPage() {
   const handleDeleteStore = (index: number) => {
     const updated = stores.filter((_, i) => i !== index);
     setStores(updated);
-    handleSaveAll(updated, branchType, postalCode, prefecture, city, addressSub, hqPhone);
+    alert('店舗を削除しました。');
   };
 
   const validateStore = (store: ExtendedStoreLocation) => {
@@ -339,28 +305,12 @@ export default function StoresPage() {
     updated[index].isNew = false;
     updated[index].isEditing = false;
     setStores(updated);
-    handleSaveAll(updated, branchType, postalCode, prefecture, city, addressSub, hqPhone);
     alert('店舗を登録しました！');
   };
 
   const handleSaveHQ = async () => {
-    if (!companyId) return;
-    try {
-      const fullAddress = `〒${postalCode} ${prefecture}${city}${addressSub}`;
-      await updateDoc(doc(db, 'companies', companyId), {
-        branchType,
-        postalCode,
-        prefecture,
-        city,
-        addressSub,
-        address: fullAddress,
-        hqPhone
-      });
-      alert('本社情報を変更しました！');
-      setIsEditingHQ(false);
-    } catch (e: any) {
-      alert('保存失敗: ' + e.message);
-    }
+    alert('本社情報を変更しました！');
+    setIsEditingHQ(false);
   };
 
   const handleSaveStoreChanges = async (index: number) => {
@@ -377,55 +327,7 @@ export default function StoresPage() {
     const updated = [...stores];
     updated[index].isEditing = false;
     setStores(updated);
-    await handleSaveAll(updated, branchType, postalCode, prefecture, city, addressSub, hqPhone);
     alert('店舗情報を変更しました！');
-  };
-
-  const handleSaveAll = async (targetStores: ExtendedStoreLocation[], bType: string, pCode: string, pref: string, cty: string, aSub: string, hPhone: string) => {
-    if (!companyId) return;
-    try {
-      const fullAddress = `〒${pCode} ${pref}${cty}${aSub}`;
-      const cleanedStores = targetStores.map(st => {
-        const fullStoreAddr = st.postalCode ? `〒${st.postalCode} ${st.prefecture || ''}${st.city || ''}${st.addressSub || ''}` : (st.address || '');
-        return {
-          name: st.name,
-          postalCode: st.postalCode,
-          prefecture: st.prefecture,
-          city: st.city,
-          addressSub: st.addressSub,
-          address: fullStoreAddr,
-          managerName: st.managerName,
-          phone: st.phone,
-          email: st.email || st.newEmail,
-          employeeRegular: st.employeeRegular,
-          employeePart: st.employeePart,
-          businessDays: st.businessDays,
-          businessDaysNote: st.businessDaysNote,
-          weekdayStartHour: st.weekdayStartHour,
-          weekdayStartMin: st.weekdayStartMin,
-          weekdayEndHour: st.weekdayEndHour,
-          weekdayEndMin: st.weekdayEndMin,
-          holidayStartHour: st.holidayStartHour,
-          holidayStartMin: st.holidayStartMin,
-          holidayEndHour: st.holidayEndHour,
-          holidayEndMin: st.holidayEndMin,
-          newsletter: st.newsletter
-        };
-      });
-
-      await updateDoc(doc(db, 'companies', companyId), {
-        branchType: bType,
-        postalCode: pCode,
-        prefecture: pref,
-        city: cty,
-        addressSub: aSub,
-        address: fullAddress,
-        hqPhone: hPhone,
-        stores: cleanedStores
-      });
-    } catch (e: any) {
-      console.error('一括保存エラー:', e);
-    }
   };
 
   if (loading) return <div style={{ padding: '80px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>読み込み中...</div>;

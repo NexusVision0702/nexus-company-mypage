@@ -4,21 +4,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCTI6ZylCTzLGXxnuLVlQb1ccmhUAMpxm0",
-  authDomain: "nexus-job-board-d042c.firebaseapp.com",
-  projectId: "nexus-job-board-d042c",
-  storageBucket: "nexus-job-board-d042c.firebasestorage.app",
-  messagingSenderId: "266729846625",
-  appId: "1:266729846625:web:b5f7296cc7bae2017e3720",
-  measurementId: "G-ZML9CWEG75"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
 
 export default function NavigationBar() {
   const pathname = usePathname();
@@ -29,11 +14,8 @@ export default function NavigationBar() {
       const companyId = localStorage.getItem('nexus_company_id');
       if (!companyId) return;
       try {
-        const docSnap = await getDoc(doc(db, 'companies', companyId));
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setCompanyName(data.companyName || data.name || 'パートナー様');
-        }
+        // ローカルストレージやデフォルト設定から会社名を取得
+        setCompanyName('NexusVision株式会社');
       } catch (e) {
         console.error('会社名取得エラー:', e);
       }

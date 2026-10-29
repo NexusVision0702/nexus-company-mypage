@@ -2,21 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCTI6ZylCTzLGXxnuLVlQb1ccmhUAMpxm0",
-  authDomain: "nexus-job-board-d042c.firebaseapp.com",
-  projectId: "nexus-job-board-d042c",
-  storageBucket: "nexus-job-board-d042c.firebasestorage.app",
-  messagingSenderId: "266729846625",
-  appId: "1:266729846625:web:b5f7296cc7bae2017e3720",
-  measurementId: "G-ZML9CWEG75"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
 
 interface Thread {
   id: string;
@@ -79,7 +64,6 @@ export default function DmPage() {
     } else {
       setCompanyId(id);
     }
-    // ここで実際のFirebaseからのスレッド取得処理などを実装可能です
   }, []);
 
   const handleSelectThread = (threadId: string) => {
@@ -120,7 +104,7 @@ export default function DmPage() {
           </h1>
         </div>
 
-        {/* メインカードコンテナ（ご提示いただいた画面と同一の白ベース・角丸・影付きボックス） */}
+        {/* メインカードコンテナ */}
         <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', display: 'flex', height: '680px', overflow: 'hidden' }}>
           
           {/* 左側：メッセージ（スレッド）一覧 */}
