@@ -70,8 +70,12 @@ export default function LoginPage() {
         throw new Error(data.error || '認証コードが正しくありません。');
       }
 
-      // ログイン成功時に会社IDをローカルストレージに保存
-      localStorage.setItem('nexus_company_id', data.companyId || 'demo_company_001');
+      // ログイン成功時に会社IDをローカルストレージとCookieの両方に保存（ミドルウェア対策）
+      const companyIdToSave = data.companyId || 'demo_company_001';
+      localStorage.setItem('nexus_company_id', companyIdToSave);
+      
+      // ミドルウェアが読み取れるようにCookieにもセット（有効期限1日）
+      document.cookie = `nexus_company_id=${companyIdToSave}; path=/; max-age=86400; SameSite=Lax`;
 
       // ログイン後は最初にホーム画面（/home）へ飛ぶ
       router.push('/home');

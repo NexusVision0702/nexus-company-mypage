@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     // 1. DynamoDBから該当する企業データを検索
     const scanResult = await docClient.send(new ScanCommand({
       TableName: TABLE_NAME,
-      FilterExpression: "contactEmail = :email OR email = :email",
+      FilterExpression: "contactEmail = :email OR email = :email OR accountingEmail = :email OR businessEmail = :email",
       ExpressionAttributeValues: {
         ":email": email,
       },
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10分有効
 
     const codeItem = {
-      id: `login_code_${email}`,
+      id: `code_${email}`, // ★ プレフィックスを verify-login-code 側と完全に統一！
       email,
       verificationCode,
       expiresAt,
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     console.log('メール送信成功:', resendData);
     return NextResponse.json({ success: true, message: '認証コードを送信しました。' });
 
-  } catch (error: any) {
+    } catch (error: any) {
     console.error('Login API 例外発生:', error);
     return NextResponse.json({ error: error.message || 'ログイン処理に失敗しました。' }, { status: 500 });
   }

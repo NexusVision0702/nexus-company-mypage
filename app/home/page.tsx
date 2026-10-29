@@ -13,13 +13,68 @@ export default function HomeDashboard() {
     const fetchCompanyData = async () => {
       setLoading(true);
       try {
+        // 【セキュリティ認証ガード】未ログイン時は直ちにログイン画面へ強制リダイレクト
         const savedId = localStorage.getItem('nexus_company_id');
-        if (!savedId) {
-          localStorage.setItem('nexus_company_id', 'demo_company_001');
+        const isLoggedIn = localStorage.getItem('nexus_is_logged_in');
+
+        if (!savedId && !isLoggedIn) {
+          alert('セキュリティ保護のため、ログインが必要です。');
+          window.location.href = '/login';
+          return;
         }
 
+        const targetId = savedId || 'comp_1793266043558';
+
+        // 実際のDynamoDBからデータを取得するAPIコール
+        const res = await fetch(`/api/company?companyId=${targetId}`);
+        if (res.status === 401 || res.status === 403) {
+          alert('セッションが切れています。再度ログインしてください。');
+          window.location.href = '/login';
+          return;
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.company) {
+            const comp = data.company;
+            // DynamoDBから取得したデータを反映
+            setCurrentCompany({
+              id: comp.id || targetId,
+              email: comp.email || 'yoshihisahasama@gmail.com',
+              representativeName: comp.representativeName || '挾間 義尚',
+              contactName: comp.contactName || '挾間 義尚',
+              phone: comp.phone || comp.businessPhone || '090-0000-0000',
+              businessDescription: comp.businessDescription || '総合人材サービス・求人プラットフォーム運営',
+              invoiceNumber: comp.invoiceNumber || '',
+              capital: comp.capital || '',
+              address: `${comp.prefecture || ''}${comp.city || ''}${comp.addressSub || ''}`,
+              accountingEmail: comp.accountingEmail || comp.email || '',
+              status: comp.status || 'approved',
+              jobs: comp.jobs || [
+                {
+                  id: 'demo_job_1',
+                  employmentType: '正社員',
+                  title: '【東北から世界へ・フルリモート可】フロントエンドテックリード候補',
+                  salary: '月給 45万円 〜 70万円',
+                  viewsCount: 148
+                },
+                {
+                  id: 'demo_job_2',
+                  employmentType: '契約社員',
+                  title: '【オープニングスタッフ募集】新規店舗の立ち上げ・店舗運営マネージャー候補',
+                  salary: '月給 32万円 〜 45万円',
+                  viewsCount: 92
+                }
+              ]
+            } as any);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // フォールバック（データが見つからない場合など）
         const defaultCompany: any = {
-          id: savedId || 'demo_company_001',
+          id: targetId,
           email: 'yoshihisahasama@gmail.com',
           representativeName: '挾間 義尚',
           contactName: '挾間 義尚',

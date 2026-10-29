@@ -190,14 +190,29 @@ export default function CompanyOverviewPage() {
     return () => document.removeEventListener('click', handleClick, true);
   }, [isAnyEditing]);
 
-  // ★ DynamoDBからデータを取得してフォームにセット
+  // ★ セキュリティ認証ガード ＆ DynamoDBからのデータ取得
   useEffect(() => {
     const fetchCompanyData = async () => {
       try {
-        const companyId = 'comp_1793266043558';
-        localStorage.setItem('nexus_company_id', companyId);
+        const companyId = localStorage.getItem('nexus_company_id');
+        const isLoggedIn = localStorage.getItem('nexus_is_logged_in');
 
-        const res = await fetch(`/api/company?companyId=${companyId}`);
+        // 【セキュリティ認証ガード】未ログイン時は直ちにログイン画面へ強制リダイレクト
+        if (!companyId && !isLoggedIn) {
+          alert('セキュリティ保護のため、ログインが必要です。');
+          window.location.href = '/login';
+          return;
+        }
+
+        const targetId = companyId || 'comp_1793266043558';
+        const res = await fetch(`/api/company?companyId=${targetId}`);
+        
+        if (res.status === 401 || res.status === 403) {
+          alert('セッションが切れています。再度ログインしてください。');
+          window.location.href = '/login';
+          return;
+        }
+
         if (res.ok) {
           const data = await res.json();
           if (data && data.company) {
@@ -389,10 +404,26 @@ export default function CompanyOverviewPage() {
       }
     }
 
-    alert(`${sectionName}を更新しました！`);
-    if (sectionName === '基本情報') setEditBasic(false);
-    if (sectionName === '連絡先情報') setEditContact(false);
-    if (sectionName === '事業・詳細情報') setEditBusiness(false);
+    try {
+      const companyId = localStorage.getItem('nexus_company_id') || 'comp_1793266043558';
+      const res = await fetch('/api/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, ...formData }),
+      });
+
+      if (res.ok) {
+        alert(`${sectionName}を更新しました！`);
+        if (sectionName === '基本情報') setEditBasic(false);
+        if (sectionName === '連絡先情報') setEditContact(false);
+        if (sectionName === '事業・詳細情報') setEditBusiness(false);
+      } else {
+        const errData = await res.json();
+        alert(`保存に失敗しました: ${errData.error || '不明なエラー'}`);
+      }
+    } catch (e: any) {
+      alert(`通信エラーが発生しました: ${e.message}`);
+    }
   };
 
   if (loading) return <div style={{ padding: '80px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>読み込み中...</div>;
