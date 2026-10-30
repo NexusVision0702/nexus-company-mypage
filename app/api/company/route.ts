@@ -13,19 +13,17 @@ const client = new DynamoDBClient({
 const docClient = DynamoDBDocumentClient.from(client);
 const tableName = process.env.MY_DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
 
-// 1. 企業データの取得 (GET)
+// 1. 企業データの取得 (GET - 全属性返却)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // クエリパラメータが指定されていない場合は、HttpOnly Cookie からログイン中の企業IDを取得
     let companyId: string | null | undefined = searchParams.get('companyId');
     if (!companyId) {
       const cookieStore = await cookies();
       companyId = cookieStore.get('nexus_company_id')?.value;
     }
 
-    // どちらからも取得できない場合のフォールバック
     const targetCompanyId = companyId || 'comp_1793266043558';
 
     const command = new GetCommand({
@@ -46,12 +44,11 @@ export async function GET(request: Request) {
   }
 }
 
-// 2. 企業データの更新・保存 (PUT)
+// 2. 企業データの更新・保存 (PUT - 全属性網羅・予約語完全対応)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
     
-    // Cookieからセッション（会社ID）を取得して安全性を担保
     const cookieStore = await cookies();
     const cookieCompanyId = cookieStore.get('nexus_company_id')?.value;
 
@@ -60,6 +57,7 @@ export async function PUT(request: Request) {
     const {
       companyName,
       corporateNumber,
+      corporateType,
       invoiceNumber,
       representativeName,
       licenseNumber,
@@ -73,6 +71,7 @@ export async function PUT(request: Request) {
       contactName,
       accountingContactName,
       phone,
+      email,
       accountingEmail,
       homepageUrl,
       branchType,
@@ -92,6 +91,7 @@ export async function PUT(request: Request) {
       UpdateExpression: `
         SET companyName = :companyName,
             corporateNumber = :corporateNumber,
+            corporateType = :corporateType,
             invoiceNumber = :invoiceNumber,
             representativeName = :representativeName,
             licenseNumber = :licenseNumber,
@@ -105,6 +105,7 @@ export async function PUT(request: Request) {
             contactName = :contactName,
             accountingContactName = :accountingContactName,
             phone = :phone,
+            #em = :email,
             accountingEmail = :accountingEmail,
             homepageUrl = :homepageUrl,
             branchType = :branchType,
@@ -117,9 +118,13 @@ export async function PUT(request: Request) {
             businessDescription = :businessDescription,
             newsletter = :newsletter
       `,
+      ExpressionAttributeNames: {
+        '#em': 'email',
+      },
       ExpressionAttributeValues: {
         ':companyName': companyName || '',
         ':corporateNumber': corporateNumber || '',
+        ':corporateType': corporateType || '株式会社',
         ':invoiceNumber': invoiceNumber || '',
         ':representativeName': representativeName || '',
         ':licenseNumber': licenseNumber || '',
@@ -133,6 +138,7 @@ export async function PUT(request: Request) {
         ':contactName': contactName || '',
         ':accountingContactName': accountingContactName || '',
         ':phone': phone || '',
+        ':email': email || '',
         ':accountingEmail': accountingEmail || '',
         ':homepageUrl': homepageUrl || '',
         ':branchType': branchType || '本社',

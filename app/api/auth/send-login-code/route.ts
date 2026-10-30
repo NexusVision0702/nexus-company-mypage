@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'メールアドレスとパスワードを入力してください。' }, { status: 400 });
     }
 
-    // 1. DynamoDBから該当する企業データを検索（メールアドレスの突合）
+    // 1. DynamoDBから該当する企業データを検索（すべてのメールアドレス属性を網羅）
     try {
       if (accessKeyId && secretAccessKey) {
         const client = new DynamoDBClient({
@@ -30,7 +30,14 @@ export async function POST(request: Request) {
 
         const scanResult = await docClient.send(new ScanCommand({
           TableName: TABLE_NAME,
-          FilterExpression: "contactEmail = :email OR email = :email OR accountingEmail = :email OR businessEmail = :email",
+          // DynamoDBの予約語「email」を回避するため、エイリアスを使用して全メール項目を突合
+          FilterExpression: "#contactEmail = :email OR #em = :email OR #accountingEmail = :email OR #businessEmail = :email",
+          ExpressionAttributeNames: {
+            "#contactEmail": "contactEmail",
+            "#em": "email",
+            "#accountingEmail": "accountingEmail",
+            "#businessEmail": "businessEmail",
+          },
           ExpressionAttributeValues: {
             ":email": email,
           },
@@ -54,7 +61,7 @@ export async function POST(request: Request) {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10分有効
 
-    // 3. 認証コードをDynamoDBに保存（エラー時もメール送信へ継続）
+    // 3. 認証コードおよびシステム管理用属性をDynamoDBに保存
     try {
       if (accessKeyId && secretAccessKey) {
         const client = new DynamoDBClient({

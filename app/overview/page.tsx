@@ -121,8 +121,8 @@ export default function CompanyOverviewPage() {
   const [editBusiness, setEditBusiness] = useState<boolean>(false);
 
   const [authData, setAuthData] = useState({
-    email: 'yoshihisahasama@gmail.com',
-    newEmail: 'yoshihisahasama@gmail.com',
+    email: '',
+    newEmail: '',
     password: '••••••••',
     newPassword: '',
     confirmPassword: ''
@@ -197,7 +197,6 @@ export default function CompanyOverviewPage() {
         const companyId = localStorage.getItem('nexus_company_id');
         const isLoggedIn = localStorage.getItem('nexus_is_logged_in');
 
-        // 【セキュリティ認証ガード】未ログイン時は直ちにログイン画面へ強制リダイレクト
         if (!companyId && !isLoggedIn) {
           alert('セキュリティ保護のため、ログインが必要です。');
           window.location.href = '/login';
@@ -217,6 +216,28 @@ export default function CompanyOverviewPage() {
           const data = await res.json();
           if (data && data.company) {
             const comp = data.company;
+            
+            // 認証データのセット
+            const userEmail = comp.email || comp.contactEmail || comp.businessEmail || '';
+            setAuthData(prev => ({
+              ...prev,
+              email: userEmail,
+              newEmail: userEmail
+            }));
+
+            // 業種データのパース・安全な配列化
+            let parsedIndustry: string[] = [];
+            if (Array.isArray(comp.industry)) {
+              parsedIndustry = comp.industry;
+            } else if (typeof comp.industry === 'string' && comp.industry.trim() !== '') {
+              try {
+                parsedIndustry = JSON.parse(comp.industry);
+              } catch {
+                parsedIndustry = [comp.industry];
+              }
+            }
+
+            // フォームデータのセット（全属性を網羅）
             setFormData(prev => ({
               ...prev,
               companyName: comp.companyName || '',
@@ -230,19 +251,20 @@ export default function CompanyOverviewPage() {
               establishYear: comp.establishYear || '2026',
               establishMonth: comp.establishMonth || '04',
               establishDay: comp.establishDay || '01',
-              industry: Array.isArray(comp.industry) ? comp.industry : [],
+              industry: parsedIndustry,
               contactName: comp.contactName || '',
               accountingContactName: comp.accountingContactName || '',
               phone: comp.phone || '',
-              accountingEmail: comp.email || comp.accountingEmail || '',
+              accountingEmail: comp.accountingEmail || comp.email || '',
+              newAccountingEmail: comp.accountingEmail || comp.email || '',
               homepageUrl: comp.homepageUrl || '',
               branchType: comp.branchType || '本社',
               postalCode: comp.postalCode || '',
               prefecture: comp.prefecture || '',
               city: comp.city || '',
               addressSub: comp.addressSub || '',
-              businessPhone: comp.businessPhone || '',
-              businessEmail: comp.email || comp.businessEmail || '',
+              businessPhone: comp.businessPhone || comp.phone || '',
+              businessEmail: comp.businessEmail || comp.email || '',
               businessDescription: comp.businessDescription || '',
               newsletter: comp.newsletter ?? false,
             }));
