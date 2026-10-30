@@ -1,8 +1,8 @@
-// app/stores/page.tsx (Fixed TypeScript type checking error for isStoreActiveEdit in getFieldStyle)
+// app/dashboard/stores/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { StoreLocation } from '../../types/company';
+import { StoreLocation } from '../../../types/company';
 
 const daysOfWeek = ['月', '火', '水', '木', '金', '土', '日', '祝日', '正月', 'GW', 'シルバーウィーク'];
 
@@ -564,10 +564,10 @@ export default function StoresPage() {
                         </div>
                       </div>
 
-                      {/* 2カラムレイアウト：左側に営業時間またはオフィス情報、右側に営業日・詳細 */}
+                      {/* 2カラムレイアウト：左側に営業時間、右側に営業日・詳細 */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px', background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', alignItems: 'start' }}>
                         
-                        {/* 左側：営業時間またはオフィス情報 */}
+                        {/* 左側：営業時間 */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534' }}>営業時間またはオフィス情報</div>
                           
@@ -664,10 +664,8 @@ export default function StoresPage() {
                           </div>
                         </div>
 
-                        {/* 右側：営業日（選択式）＆営業日の詳細（備考） */}
+                        {/* 右側：営業日＆営業日の詳細 */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          
-                          {/* 営業日選択 */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <div style={{ fontSize: '11.5px', color: '#166534', fontWeight: 'bold' }}>営業日（該当する曜日を選択）</div>
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -698,7 +696,6 @@ export default function StoresPage() {
                             </div>
                           </div>
 
-                          {/* 営業日の詳細（備考） */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 'bold' }}>営業日の詳細（備考）</div>
                             <input 
@@ -710,12 +707,10 @@ export default function StoresPage() {
                               style={getFieldStyle(isStoreActiveEdit)} 
                             />
                           </div>
-
                         </div>
-
                       </div>
 
-                      {/* メルマガ・お知らせ受領を希望するチェックボックス */}
+                      {/* メルマガ希望チェックボックス */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: isStoreActiveEdit ? '#ffffff' : '#f1f5f9', padding: '14px 18px', borderRadius: '10px', border: isStoreActiveEdit ? '1.5px solid #166534' : '1px solid #cbd5e1' }}>
                         <input 
                           type="checkbox" 
