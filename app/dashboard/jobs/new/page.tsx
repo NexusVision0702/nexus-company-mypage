@@ -1,4 +1,4 @@
-// app/jobs/new/page.tsx (Fully fixed sticky header and isolated scroll layout)
+// app/dashboard/jobs/new/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -21,77 +21,64 @@ export default function NewJobPage() {
   const [availableLocations, setAvailableLocations] = useState<{ id: string; name: string; address: string; phone: string; employees: string; hours: string }[]>([]);
   const [selectedPostingLocation, setSelectedPostingLocation] = useState('本社');
 
-  // 1. 基本情報
-  const [selectedJobCategories, setSelectedJobCategories] = useState<string[]>(['ソフトウェア開発・エンジニア', 'フロントエンドエンジニア']);
-  const [title, setTitle] = useState('【東北から世界へ・フルリモート可】自社SaaSプロダクトを牽引するフロントエンドテックリード候補');
+  // 1. 基本情報（初期値を空に設定）
+  const [selectedJobCategories, setSelectedJobCategories] = useState<string[]>([]);
+  const [title, setTitle] = useState('');
   const [employmentType, setEmploymentType] = useState('正社員');
-  const [headcount, setHeadcount] = useState('3名（組織急拡大枠）');
+  const [headcount, setHeadcount] = useState('');
 
-  // 2. 報酬・給与
+  // 2. 報酬・給与（初期値を空に設定）
   const [salaryUnit, setSalaryUnit] = useState('年収');
   const [salaryMode, setSalaryMode] = useState('変動');
   const [salaryFixed, setSalaryFixed] = useState('');
-  const [salaryMin, setSalaryMin] = useState('6500000');
-  const [salaryMax, setSalaryMax] = useState('10000000');
+  const [salaryMin, setSalaryMin] = useState('');
+  const [salaryMax, setSalaryMax] = useState('');
   const [overtimePayMode, setOvertimePayMode] = useState('含む');
-  const [overtimePayHours, setOvertimePayHours] = useState('45');
-  const [overtimePayAmount, setOvertimePayAmount] = useState('98000');
-  const [salaryDetail, setSalaryDetail] = useState('前職の給与・スキル・実績を最大限にリスペクトし優遇いたします。昇給年2回。');
-  const [modelSalaries, setModelSalaries] = useState([
-    { unit: '年収', period: '入社3年目', role: '開発責任者・テックリード', amount: '9000000' }
-  ]);
+  const [overtimePayHours, setOvertimePayHours] = useState('');
+  const [overtimePayAmount, setOvertimePayAmount] = useState('');
+  const [salaryDetail, setSalaryDetail] = useState('');
+  const [modelSalaries, setModelSalaries] = useState<any[]>([]);
 
-  // 3. ミッション等
-  const [mission, setMission] = useState('私たちは「テクノロジーの力で東北の産業構造とビジネスをアップデートする」をパーパスに掲げ、自社SaaSプラットフォームを開発しています。');
-  const [dailyWork, setDailyWork] = useState('・React / Next.js / TypeScriptを用いた次世代型Webアプリケーションの設計・新規機能開発\n・デザインシステムの構築');
-  const [careerPath, setCareerPath] = useState('入社後はコア機能の開発をリードしていただき、ゆくゆくはVPoEやCTOとして組織を牽引するキャリアパスが大きく開かれています。');
+  // 3. ミッション等（初期値を空に設定）
+  const [mission, setMission] = useState('');
+  const [dailyWork, setDailyWork] = useState('');
+  const [careerPath, setCareerPath] = useState('');
 
-  // 4. 応募要件
-  const [mustRequirements, setMustRequirements] = useState('・React、Vue.js、Next.js等のモダンなフロントエンドフレームワークを用いたWebアプリケーションの開発実務経験（3年以上）\n・TypeScriptを用いた堅牢な型安全設計');
-  const [wantRequirements, setWantRequirements] = useState('・テックリードやプレイングマネージャーとしてのリーダーシップ経験\n・デザインシステムの構築・運用経験');
-  const [idealPerson, setIdealPerson] = useState('・ユーザーにとって最高の体験とは何かを主体的に考え、妥協せずプロダクトに向き合える方\n・変化の激しいスタートアップ環境を楽しめる方');
+  // 4. 応募要件（初期値を空に設定）
+  const [mustRequirements, setMustRequirements] = useState('');
+  const [wantRequirements, setWantRequirements] = useState('');
+  const [idealPerson, setIdealPerson] = useState('');
 
-  // 5. 勤務地・環境
+  // 5. 勤務地・環境（初期値を空に設定）
   const [locationMode, setLocationMode] = useState('固定勤務地');
-  const [zipcode, setZipcode] = useState('983-0852');
-  const [prefAndCity, setPrefAndCity] = useState('宮城県仙台市宮城野区');
-  const [streetNumber, setStreetNumber] = useState('榴岡1-2-3');
-  const [buildingName, setBuildingName] = useState('仙台ITビル 5F');
+  const [zipcode, setZipcode] = useState('');
+  const [prefAndCity, setPrefAndCity] = useState('');
+  const [streetNumber, setStreetNumber] = useState('');
+  const [buildingName, setBuildingName] = useState('');
   const [mobileArea, setMobileArea] = useState('');
   const [accessMethod, setAccessMethod] = useState('徒歩');
-  const [accessStation, setAccessStation] = useState('仙台駅');
-  const [accessMinutes, setAccessMinutes] = useState('3');
+  const [accessStation, setAccessStation] = useState('');
+  const [accessMinutes, setAccessMinutes] = useState('');
   const [remoteWorkType, setRemoteWorkType] = useState('一部リモートワーク可');
-  const [remoteWorkDetail, setRemoteWorkDetail] = useState('週2〜3日のリモートワーク可能');
-  const [workSchedules, setWorkSchedules] = useState([
-    { startHour: '09', startMin: '30', endHour: '18', endMin: '30', note: 'フレックスタイム制（コアタイム 11:00〜15:00）' }
-  ]);
+  const [remoteWorkDetail, setRemoteWorkDetail] = useState('');
+  const [workSchedules, setWorkSchedules] = useState<any[]>([]);
   const [overtimeChoice, setOvertimeChoice] = useState('あり');
-  const [overtimeHours, setOvertimeHours] = useState('15');
+  const [overtimeHours, setOvertimeHours] = useState('');
   const [probationChoice, setProbationChoice] = useState('あり');
-  const [probationDuration, setProbationDuration] = useState('3');
+  const [probationDuration, setProbationDuration] = useState('');
   const [probationUnit, setProbationUnit] = useState('月');
   const [probationChange, setProbationChange] = useState('条件変動なし');
   const [probationChangeDetail, setProbationChangeDetail] = useState('');
   const [holidayType, setHolidayType] = useState('完全週休2日制（土日祝）');
-  const [holidayDetail, setHolidayDetail] = useState('年間休日125日 / 夏季休暇 / 年末年始休暇');
+  const [holidayDetail, setHolidayDetail] = useState('');
 
-  // 6. 福利厚生・社風・選考プロセス・写真
-  const [teamAtmosphere, setTeamAtmosphere] = useState('平均年齢32歳。フラットで意見が言いやすく、経営陣との距離も非常に近いアットホームかつプロフェッショナルな環境です。');
-  const [jobImages, setJobImages] = useState<string[]>([
-    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80'
-  ]);
-  const [selectedBenefits, setSelectedBenefits] = useState<string[]>([
-    '社会保険完備',
-    '交通費全額支給',
-    '書籍購入補助',
-    '資格取得支援',
-    '定期健康診断'
-  ]);
-  const [benefitsExtra, setBenefitsExtra] = useState('最新MacBook Pro ＋ 4Kモニター支給');
+  // 6. 福利厚生・社風・選考プロセス・写真（初期値を空に設定）
+  const [teamAtmosphere, setTeamAtmosphere] = useState('');
+  const [jobImages, setJobImages] = useState<string[]>([]);
+  const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
+  const [benefitsExtra, setBenefitsExtra] = useState('');
   const [smoking, setSmoking] = useState('屋内禁煙（専用喫煙室あり）');
-  const [selectionSteps, setSelectionSteps] = useState<string[]>(['書類選考', 'カジュアル面談', '一次面接', '最終面接', '内定']);
+  const [selectionSteps, setSelectionSteps] = useState<string[]>([]);
 
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isMobileFrame, setIsMobileFrame] = useState(false);
@@ -134,7 +121,6 @@ export default function NewJobPage() {
     (salaryMode === '固定' ? salaryFixed.trim() !== '' : (salaryMin.trim() !== '' && salaryMax.trim() !== '')) &&
     (overtimePayMode === '含まない' || (overtimePayHours.trim() !== '' && overtimePayAmount.trim() !== '')) &&
     salaryDetail.trim() !== '' &&
-    modelSalaries.every(m => m.role.trim() !== '' && m.amount.trim() !== '') &&
     mission.trim() !== '' &&
     dailyWork.trim() !== '' &&
     careerPath.trim() !== '' &&
@@ -148,13 +134,11 @@ export default function NewJobPage() {
     accessStation.trim() !== '' &&
     accessMinutes.trim() !== '' &&
     remoteWorkDetail.trim() !== '' &&
-    workSchedules.every(w => w.note.trim() !== '') &&
-    (overtimeChoice === 'なし' || overtimeHours.trim() !== '') &&
-    (probationChoice === 'なし' || probationDuration.trim() !== '') &&
     holidayDetail.trim() !== '' &&
     teamAtmosphere.trim() !== '' &&
     selectedBenefits.length > 0 &&
     selectedPostingLocation.trim() !== '' &&
+    selectionSteps.length > 0 &&
     selectionSteps.every(s => s.trim() !== '');
 
   const handleJobCategoryToggle = (cat: string) => {
@@ -292,9 +276,8 @@ export default function NewJobPage() {
 
     setLoading(true);
     try {
-      // 求人データの保存処理（APIまたはローカル処理）
       const mockJobId = 'job_' + Date.now();
-      const generatedUrl = `${window.location.origin}/jobs/${mockJobId}`;
+      const generatedUrl = `${window.location.origin}/dashboard/jobs/${mockJobId}`;
       setPublishedUrl(generatedUrl);
     } catch (err: any) {
       alert('作成失敗: ' + err.message);
@@ -397,7 +380,7 @@ export default function NewJobPage() {
             </button>
             <button 
               type="button"
-              onClick={() => window.location.href = '/jobs'}
+              onClick={() => window.location.href = '/dashboard/jobs'}
               style={{ flex: 1, background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#ffffff', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '14px', fontWeight: '800', cursor: 'pointer' }}
             >
               求人一覧に戻る
@@ -416,7 +399,6 @@ export default function NewJobPage() {
     return (
       <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#f8fafc', color: '#1e293b', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
-        {/* 固定されたトップヘッダーバー */}
         <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <span style={{ background: '#059669', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '5px 14px', borderRadius: '20px', letterSpacing: '0.05em' }}>
@@ -458,7 +440,6 @@ export default function NewJobPage() {
           </div>
         </div>
 
-        {/* プレビュー本文のスクロールコンテナ */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '40px 20px' }}>
           <div style={{ 
             maxWidth: isMobileFrame ? '410px' : '900px', 
@@ -496,7 +477,7 @@ export default function NewJobPage() {
               </div>
 
               <h1 style={{ fontSize: isMobileFrame ? '22px' : '34px', fontWeight: '900', lineHeight: '1.35', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-                {title}
+                {title || '（求人タイトル未入力）'}
               </h1>
 
               <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', border: '2px solid #059669', borderRadius: '20px', padding: isMobileFrame ? '20px' : '32px 40px', display: 'flex', flexDirection: isMobileFrame ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobileFrame ? 'flex-start' : 'center', gap: '16px', boxShadow: '0 15px 35px rgba(5, 150, 105, 0.12)' }}>
@@ -506,13 +487,13 @@ export default function NewJobPage() {
                     <span style={{ fontSize: '12px', fontWeight: '800', color: '#059669', letterSpacing: '0.05em' }}>想定給与 / 報酬</span>
                   </div>
                   <span style={{ fontSize: isMobileFrame ? '22px' : '30px', fontWeight: '900', color: '#0f172a' }}>
-                    {salaryUnit} {salaryMode === '固定' ? Number(salaryFixed).toLocaleString() : `${Number(salaryMin).toLocaleString()}円 〜 ${Number(salaryMax).toLocaleString()}`}円
+                    {salaryUnit} {salaryMode === '固定' ? (salaryFixed ? Number(salaryFixed).toLocaleString() + '円' : '未設定') : (salaryMin && salaryMax ? `${Number(salaryMin).toLocaleString()}円 〜 ${Number(salaryMax).toLocaleString()}円` : '未設定')}
                   </span>
                   {salaryDetail && <p style={{ margin: '6px 0 0 0', fontSize: isMobileFrame ? '12px' : '13px', color: '#475569' }}>{salaryDetail}</p>}
                 </div>
                 <div style={{ borderLeft: isMobileFrame ? 'none' : '2px solid #a7f3d0', paddingLeft: isMobileFrame ? '0' : '32px', paddingTop: isMobileFrame ? '10px' : '0', borderTop: isMobileFrame ? '1px solid #e2e8f0' : 'none', width: '100%' }}>
                   <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>募集人数</span>
-                  <span style={{ fontSize: isMobileFrame ? '15px' : '18px', fontWeight: '900', color: '#0f172a' }}>{headcount}</span>
+                  <span style={{ fontSize: isMobileFrame ? '15px' : '18px', fontWeight: '900', color: '#0f172a' }}>{headcount || '未設定'}</span>
                 </div>
               </div>
 
@@ -540,7 +521,7 @@ export default function NewJobPage() {
                   </h2>
                 </div>
                 <p style={{ fontSize: isMobileFrame ? '13.5px' : '15.5px', lineHeight: '1.85', color: '#334155', whiteSpace: 'pre-wrap', margin: 0 }}>
-                  {mission}
+                  {mission || '（ミッション未入力）'}
                 </p>
                 {dailyWork && (
                   <div style={{ marginTop: '10px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
@@ -570,12 +551,12 @@ export default function NewJobPage() {
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                   <span style={{ fontSize: '12px', fontWeight: '900', color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '3px 10px', borderRadius: '6px', width: 'fit-content' }}>必須要件（MUST）</span>
-                  <p style={{ margin: 0, fontSize: isMobileFrame ? '13.5px' : '15px', lineHeight: '1.8', color: '#334155', whiteSpace: 'pre-wrap' }}>{mustRequirements}</p>
+                  <p style={{ margin: 0, fontSize: isMobileFrame ? '13.5px' : '15px', lineHeight: '1.8', color: '#334155', whiteSpace: 'pre-wrap' }}>{mustRequirements || '（必須要件未入力）'}</p>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                   <span style={{ fontSize: '12px', fontWeight: '900', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '3px 10px', borderRadius: '6px', width: 'fit-content' }}>歓迎要件（WANT）</span>
-                  <p style={{ margin: 0, fontSize: isMobileFrame ? '13.5px' : '15px', lineHeight: '1.8', color: '#334155', whiteSpace: 'pre-wrap' }}>{wantRequirements}</p>
+                  <p style={{ margin: 0, fontSize: isMobileFrame ? '13.5px' : '15px', lineHeight: '1.8', color: '#334155', whiteSpace: 'pre-wrap' }}>{wantRequirements || '（歓迎要件未入力）'}</p>
                 </div>
               </div>
 
@@ -699,11 +680,11 @@ export default function NewJobPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '24px' }}>
           <div>
             <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#059669', marginBottom: '6px' }}>RECRUITMENT / CREATE</div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>新規求人を作成（テスト用データ入力済み）</h1>
+            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>新規求人を作成</h1>
           </div>
           <button 
             type="button"
-            onClick={() => { window.location.href = '/jobs'; }} 
+            onClick={() => { window.location.href = '/dashboard/jobs'; }} 
             style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
           >
             ← 一覧に戻る
@@ -715,11 +696,11 @@ export default function NewJobPage() {
           <div style={{ background: isFormComplete ? '#f0fdf4' : '#fffbeb', border: `1px solid ${isFormComplete ? '#bbf7d0' : '#fde68a'}`, padding: '18px 22px', borderRadius: '14px', fontSize: '13.5px', color: isFormComplete ? '#065f46' : '#92400e', lineHeight: '1.7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>
               {isFormComplete 
-                ? '✨ テスト用データがすべて入力されています！「公開（プレビュー）する」ボタンから動作確認にお進みください。' 
+                ? '✨ 必須項目がすべて入力されています！「公開（プレビュー）する」ボタンから確認画面へお進みください。' 
                 : '⚠️ 未入力の項目があります。すべての項目を入力するとボタンがアクティブになります。'}
             </span>
             <span style={{ fontSize: '12px', fontWeight: '800', background: isFormComplete ? '#059669' : '#d97706', color: '#fff', padding: '4px 12px', borderRadius: '20px' }}>
-              {isFormComplete ? 'テスト準備完了 🎉' : '入力途中...'}
+              {isFormComplete ? '入力完了 🎉' : '入力途中...'}
             </span>
           </div>
 

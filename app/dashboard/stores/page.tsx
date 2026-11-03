@@ -13,6 +13,9 @@ interface ExtendedStoreLocation extends StoreLocation {
   prefecture?: string;
   city?: string;
   addressSub?: string;
+  addressLine?: string;
+  managerName?: string;
+  phone?: string;
   employeeRegular?: string;
   employeePart?: string;
   businessDays?: string[];
@@ -38,56 +41,76 @@ export default function StoresPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
+
   const [isEditingHQ, setIsEditingHQ] = useState<boolean>(false);
   const [branchType, setBranchType] = useState<string>('本社');
-  const [postalCode, setPostalCode] = useState<string>('9830852');
-  const [prefecture, setPrefecture] = useState<string>('宮城県');
-  const [city, setCity] = useState<string>('仙台市宮城野区');
-  const [addressSub, setAddressSub] = useState<string>('榴岡1-2-3');
-  const [hqPhone, setHqPhone] = useState<string>('022-000-0000');
+  const [postalCode, setPostalCode] = useState<string>('');
+  const [prefecture, setPrefecture] = useState<string>('');
+  const [city, setCity] = useState<string>('');
+  const [addressSub, setAddressSub] = useState<string>('');
+  const [hqPhone, setHqPhone] = useState<string>('');
 
-  const [stores, setStores] = useState<ExtendedStoreLocation[]>([
-    {
-      name: '仙台駅前支店',
-      postalCode: '9800021',
-      prefecture: '宮城県',
-      city: '仙台市青葉区',
-      addressSub: '中央1-1-1',
-      address: '〒9800021 宮城県仙台市青葉区中央1-1-1',
-      managerName: '佐藤 太郎',
-      phone: '022-111-2222',
-      email: 'sendai@nexus-vision.net',
-      newEmail: 'sendai@nexus-vision.net',
-      employeeRegular: '5',
-      employeePart: '8',
-      businessDays: ['月', '火', '水', '木', '金'],
-      businessDaysNote: '土日祝日は定休日となります。',
-      weekdayStartHour: '09',
-      weekdayStartMin: '00',
-      weekdayEndHour: '18',
-      weekdayEndMin: '00',
-      holidayStartHour: '-',
-      holidayStartMin: '-',
-      holidayEndHour: '-',
-      holidayEndMin: '-',
-      newsletter: true,
-      isNew: false,
-      isEditing: false,
-      email2FAStatus: 'idle',
-      sentCode: '',
-      inputCode: ''
-    }
-  ]);
+  const [stores, setStores] = useState<ExtendedStoreLocation[]>([]);
 
   useEffect(() => {
-    const id = localStorage.getItem('nexus_company_id');
-    if (!id) {
-      localStorage.setItem('nexus_company_id', 'demo_company_001');
-      setCompanyId('demo_company_001');
-    } else {
-      setCompanyId(id);
-    }
-    setLoading(false);
+    const fetchHQData = async () => {
+      try {
+        const id = localStorage.getItem('nexus_company_id') || 'comp_1793455332362';
+        setCompanyId(id);
+
+        const res = await fetch(`/api/company?companyId=${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.company) {
+            const comp = data.company;
+            setBranchType(comp.branchType || '本社');
+            setPostalCode(comp.postalCode || '');
+            setPrefecture(comp.prefecture || '');
+            setCity(comp.city || '');
+            setAddressSub(comp.addressSub || comp.addressLine || '');
+            setHqPhone(comp.businessPhone || comp.phone || '');
+            
+            if (Array.isArray(comp.stores)) {
+              setStores(comp.stores.map((st: any) => ({
+                ...st,
+                addressSub: st.addressLine || st.addressSub || st.address || '',
+                managerName: st.managerName || '',
+                phone: st.phone || '',
+                employeeRegular: st.employeeRegular !== undefined ? String(st.employeeRegular) : '',
+                employeePart: st.employeePart !== undefined ? String(st.employeePart) : '',
+                businessDays: Array.isArray(st.businessDays) ? st.businessDays : [],
+                businessDaysNote: st.businessDaysNote || '',
+                weekdayStartHour: st.weekdayStartHour || '-',
+                weekdayStartMin: st.weekdayStartMin || '-',
+                weekdayEndHour: st.weekdayEndHour || '-',
+                weekdayEndMin: st.weekdayEndMin || '-',
+                holidayStartHour: st.holidayStartHour || '-',
+                holidayStartMin: st.holidayStartMin || '-',
+                holidayEndHour: st.holidayEndHour || '-',
+                holidayEndMin: st.holidayEndMin || '-',
+                newsletter: st.newsletter ?? true,
+                isNew: false,
+                isEditing: false
+              })));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('本社・店舗情報の取得に失敗しました:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHQData();
   }, []);
 
   const isAnyEditing = isEditingHQ || stores.some(st => st.isNew || st.isEditing);
@@ -102,19 +125,6 @@ export default function StoresPage() {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isAnyEditing]);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest('a');
-      if (target && isAnyEditing) {
-        e.preventDefault();
-        e.stopPropagation();
-        alert('変更や登録が保存されていません。');
-      }
-    };
-    document.addEventListener('click', handleClick, true);
-    return () => document.removeEventListener('click', handleClick, true);
   }, [isAnyEditing]);
 
   const handlePhoneFormat = (value: string) => {
@@ -178,6 +188,7 @@ export default function StoresPage() {
       prefecture: '', 
       city: '', 
       addressSub: '', 
+      addressLine: '',
       address: '', 
       managerName: '', 
       phone: '', 
@@ -217,8 +228,8 @@ export default function StoresPage() {
     } else if (field === 'employeeRegular' || field === 'employeePart') {
       processedValue = value.replace(/[^0-9]/g, '');
       updated[index] = { ...updated[index], [field]: processedValue, isEditing: true };
-    } else if (field === 'newsletter') {
-      updated[index] = { ...updated[index], newsletter: value, isEditing: true };
+    } else if (field === 'addressSub') {
+      updated[index] = { ...updated[index], addressSub: processedValue, addressLine: processedValue, isEditing: true };
     } else {
       updated[index] = { ...updated[index], [field]: processedValue, isEditing: true };
     }
@@ -238,96 +249,163 @@ export default function StoresPage() {
     setStores(updated);
   };
 
-  const handleRequestStoreEmail2FA = (index: number) => {
-    const store = stores[index];
-    if (!store.newEmail || store.newEmail === store.email) {
-      alert('変更後の新しいメールアドレスを入力してください。');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(store.newEmail)) {
-      alert('有効なメールアドレスの形式で入力してください。');
-      return;
-    }
-    const mockCode = String(Math.floor(100000 + Math.random() * 900000));
-    const updated = [...stores];
-    updated[index] = { ...updated[index], email2FAStatus: 'waiting', sentCode: mockCode, isEditing: true };
-    setStores(updated);
-    alert(`【シミュレーション】新しい店舗メールアドレス（ ${store.newEmail} ）宛に二段階認証コード [ ${mockCode} ] を送信しました。`);
-  };
-
-  const handleVerifyStoreEmail2FA = (index: number) => {
-    const store = stores[index];
-    if ((store.inputCode || '').trim() !== store.sentCode) {
-      alert('二段階認証コードが一致しません。正しいコードを入力してください。');
-      return;
-    }
-    const updated = [...stores];
-    updated[index] = {
-      ...updated[index],
-      email: store.newEmail,
-      email2FAStatus: 'idle',
-      sentCode: '',
-      inputCode: '',
-      isEditing: true
-    };
-    setStores(updated);
-    alert('店舗メールアドレスの変更が承認されました！');
-  };
-
-  const handleDeleteStore = (index: number) => {
+  const handleDeleteStore = async (index: number) => {
     const updated = stores.filter((_, i) => i !== index);
     setStores(updated);
-    alert('店舗を削除しました。');
+    
+    try {
+      const targetId = companyId || 'comp_1793455332362';
+      const storesToSave = updated.map(st => ({
+        ...st,
+        addressLine: st.addressSub || st.addressLine || ''
+      }));
+      await fetch('/api/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: targetId, stores: storesToSave }),
+      });
+      showToast('店舗を削除し、保存しました。');
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const validateStore = (store: ExtendedStoreLocation) => {
-    if (!store.name || !store.postalCode || !store.prefecture || !store.city || !store.addressSub || !store.managerName || !store.phone || store.employeeRegular === '' || store.employeePart === '') {
+    if (!store.name || !store.postalCode || !store.prefecture || !store.city || (!store.addressSub && !store.addressLine) || !store.managerName || !store.phone || store.employeeRegular === '' || store.employeePart === '') {
       alert('すべての項目を入力してください。');
       return false;
     }
     return true;
   };
 
-  const handleRegisterStore = (index: number) => {
+  const handleSaveStoreToDB = async (updatedStores: ExtendedStoreLocation[], successMessage: string) => {
+    try {
+      const targetId = companyId || 'comp_1793455332362';
+      const storesToSave = updatedStores.map(st => ({
+        name: st.name || '',
+        postalCode: st.postalCode || '',
+        prefecture: st.prefecture || '',
+        city: st.city || '',
+        addressLine: st.addressSub || st.addressLine || '',
+        managerName: st.managerName || '',
+        phone: st.phone || '',
+        email: st.newEmail || st.email || '',
+        employeeRegular: st.employeeRegular || '0',
+        employeePart: st.employeePart || '0',
+        businessDays: st.businessDays || [],
+        businessDaysNote: st.businessDaysNote || '',
+        weekdayStartHour: st.weekdayStartHour || '-',
+        weekdayStartMin: st.weekdayStartMin || '-',
+        weekdayEndHour: st.weekdayEndHour || '-',
+        weekdayEndMin: st.weekdayEndMin || '-',
+        holidayStartHour: st.holidayStartHour || '-',
+        holidayStartMin: st.holidayStartMin || '-',
+        holidayEndHour: st.holidayEndHour || '-',
+        holidayEndMin: st.holidayEndMin || '-',
+        newsletter: st.newsletter ?? true
+      }));
+
+      const res = await fetch('/api/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: targetId,
+          stores: storesToSave
+        }),
+      });
+
+      if (res.ok) {
+        showToast(successMessage);
+      } else {
+        alert('保存に失敗しました。');
+      }
+    } catch (e) {
+      console.error('通信エラー:', e);
+      alert('通信エラーが発生しました。');
+    }
+  };
+
+  const handleRegisterStore = async (index: number) => {
     const store = stores[index];
     if (!validateStore(store)) return;
 
-    if (store.newEmail) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(store.newEmail)) {
-        alert('有効なメールアドレスの形式で入力してください。');
-        return;
-      }
-    }
     const updated = [...stores];
-    updated[index].email = store.newEmail || store.email;
     updated[index].isNew = false;
     updated[index].isEditing = false;
     setStores(updated);
-    alert('店舗を登録しました！');
+
+    await handleSaveStoreToDB(updated, '店舗を新規登録し、保存しました。');
   };
 
   const handleSaveHQ = async () => {
-    alert('本社情報を変更しました！');
-    setIsEditingHQ(false);
+    if (!postalCode || !prefecture || !city || !addressSub || !hqPhone) {
+      alert('すべての必須項目を入力してください。');
+      return;
+    }
+
+    try {
+      const targetId = companyId || 'comp_1793455332362';
+      const storesToSave = stores.map(st => ({
+        name: st.name || '',
+        postalCode: st.postalCode || '',
+        prefecture: st.prefecture || '',
+        city: st.city || '',
+        addressLine: st.addressSub || st.addressLine || '',
+        managerName: st.managerName || '',
+        phone: st.phone || '',
+        email: st.newEmail || st.email || '',
+        employeeRegular: st.employeeRegular || '0',
+        employeePart: st.employeePart || '0',
+        businessDays: st.businessDays || [],
+        businessDaysNote: st.businessDaysNote || '',
+        weekdayStartHour: st.weekdayStartHour || '-',
+        weekdayStartMin: st.weekdayStartMin || '-',
+        weekdayEndHour: st.weekdayEndHour || '-',
+        weekdayEndMin: st.weekdayEndMin || '-',
+        holidayStartHour: st.holidayStartHour || '-',
+        holidayStartMin: st.holidayStartMin || '-',
+        holidayEndHour: st.holidayEndHour || '-',
+        holidayEndMin: st.holidayEndMin || '-',
+        newsletter: st.newsletter ?? true
+      }));
+
+      const res = await fetch('/api/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: targetId,
+          branchType,
+          postalCode,
+          prefecture,
+          city,
+          addressSub,
+          businessPhone: hqPhone,
+          phone: hqPhone,
+          stores: storesToSave
+        }),
+      });
+
+      if (res.ok) {
+        showToast('本社情報を変更し、店舗情報とともに保存しました。');
+        setIsEditingHQ(false);
+      } else {
+        alert('保存に失敗しました。');
+      }
+    } catch (e) {
+      console.error('通信エラー:', e);
+      alert('通信エラーが発生しました。');
+    }
   };
 
   const handleSaveStoreChanges = async (index: number) => {
     const store = stores[index];
     if (!validateStore(store)) return;
 
-    if (store.newEmail) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(store.newEmail)) {
-        alert('有効なメールアドレスの形式で入力してください。');
-        return;
-      }
-    }
     const updated = [...stores];
     updated[index].isEditing = false;
     setStores(updated);
-    alert('店舗情報を変更しました！');
+
+    await handleSaveStoreToDB(updated, '店舗情報を変更し、上書き保存しました。');
   };
 
   if (loading) return <div style={{ padding: '80px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>読み込み中...</div>;
@@ -349,7 +427,35 @@ export default function StoresPage() {
   });
 
   return (
-    <div style={{ minHeight: '90vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '60px 40px', boxSizing: 'border-box' }}>
+    <div style={{ minHeight: '90vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '60px 40px', boxSizing: 'border-box', position: 'relative' }}>
+      
+      {/* 🌟 すっきりシンプルで見やすい緑基調の中央上トースト通知 */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          background: 'linear-gradient(135deg, #14532d 0%, #166534 100%)',
+          color: '#ffffff',
+          padding: '14px 28px',
+          borderRadius: '50px',
+          boxShadow: '0 20px 25px -5px rgba(22, 101, 52, 0.25), 0 8px 10px -6px rgba(22, 101, 52, 0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '14px',
+          fontWeight: '600',
+          letterSpacing: '0.02em',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          backdropFilter: 'blur(8px)',
+          whiteSpace: 'nowrap'
+        }}>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       <div style={{ maxWidth: '1150px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid #e2e8f0', paddingBottom: '24px' }}>
@@ -521,6 +627,7 @@ export default function StoresPage() {
                         </div>
                       </div>
 
+                      {/* 責任者名・電話番号 */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                         <div>
                           <div style={{ fontSize: '11.5px', color: '#166534', fontWeight: 'bold', marginBottom: '4px' }}>責任者名</div>
@@ -723,30 +830,6 @@ export default function StoresPage() {
                         <label htmlFor={`newsletter-${sIdx}`} style={{ fontSize: '13.5px', fontWeight: '600', color: '#0f172a', cursor: isStoreActiveEdit ? 'pointer' : 'default' }}>
                           メルマガ・お知らせ受領を希望する
                         </label>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {isStoreActiveEdit && !store.isNew ? (
-                          <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1.5px dashed #166534', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ fontSize: '11.5px', fontWeight: 'bold', color: '#166534' }}>店舗メールアドレス変更 (要二段階認証)</div>
-                            {store.email2FAStatus !== 'waiting' ? (
-                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <input type="email" value={store.newEmail || ''} onChange={e => handleStoreChange(sIdx, 'email', e.target.value)} placeholder="新しい店舗メールアドレス" style={getFieldStyle(true)} />
-                                <button onClick={() => handleRequestStoreEmail2FA(sIdx)} style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>新しいアドレスに二段階認証コード送信</button>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#fff', padding: '10px', borderRadius: '6px', border: '1.5px solid #166534' }}>
-                                <span style={{ fontSize: '12px', color: '#1e293b' }}>新アドレス（{store.newEmail}）宛に送信された6桁のコードを入力してください。</span>
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                  <input type="text" value={store.inputCode || ''} onChange={e => { const up = [...stores]; up[sIdx].inputCode = e.target.value; setStores(up); }} placeholder="6桁のコード" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '160px', fontSize: '13px' }} />
-                                  <button onClick={() => handleVerifyStoreEmail2FA(sIdx)} style={{ background: '#166534', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>承認して変更を完了する</button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : store.isNew ? (
-                          <input type="email" value={store.newEmail || ''} onChange={e => handleStoreChange(sIdx, 'email', e.target.value)} placeholder="店舗メールアドレスを入力 (例: info@example.com)" style={getFieldStyle(true)} />
-                        ) : null}
                       </div>
 
                     </div>

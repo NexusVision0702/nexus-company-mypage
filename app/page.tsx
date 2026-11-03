@@ -4,21 +4,18 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function Home() {
+export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const companyId = localStorage.getItem('nexus_company_id');
-    if (!companyId) {
-      router.replace('/login');
-    } else {
-      router.replace('/home');
-    }
+    // 💡 確実にログイン画面からスタートさせたい場合は、
+    // アクセス時に強制的にログインページへリダイレクトさせます
+    router.replace('/login');
   }, [router]);
 
   return (
-    <div style={{ padding: '80px', textAlign: 'center', color: '#64748b', fontSize: '14px', fontFamily: 'sans-serif' }}>
-      読み込み中...
+    <div style={{ padding: '100px', textAlign: 'center', color: '#64748b', fontSize: '15px', fontFamily: 'sans-serif' }}>
+      ログイン画面へ移動中...
     </div>
   );
 }

@@ -14,9 +14,23 @@ export default function HomeDashboard() {
       setLoading(true);
       try {
         const savedId = localStorage.getItem('nexus_company_id');
+        const isLoggedIn = localStorage.getItem('nexus_is_logged_in');
+
+        if (!savedId && !isLoggedIn) {
+          alert('セキュリティ保護のため、ログインが必要です。');
+          window.location.href = '/login';
+          return;
+        }
+
         const targetId = savedId || 'comp_1793266043558';
 
         const res = await fetch(`/api/company?companyId=${targetId}`);
+        if (res.status === 401 || res.status === 403) {
+          alert('セッションが切れています。再度ログインしてください。');
+          window.location.href = '/login';
+          return;
+        }
+
         if (res.ok) {
           const data = await res.json();
           if (data && data.company) {
@@ -26,37 +40,23 @@ export default function HomeDashboard() {
           }
         }
 
-        // フォールバック
+        // 空の状態を設定
         setCurrentCompany({
           id: targetId,
-          email: 'yoshihisahasama@gmail.com',
-          representativeName: '挾間 義尚',
-          contactName: '挾間 義尚',
-          phone: '090-0000-0000',
-          businessDescription: '総合人材サービス・求人プラットフォーム運営',
-          invoiceNumber: 'T1234567890123',
-          capital: '1000万円',
-          address: '宮城県仙台市',
-          accountingEmail: 'accounting@nexus-vision.net',
-          status: 'approved',
-          jobs: [
-            {
-              id: 'demo_job_1',
-              employmentType: '正社員',
-              title: '【東北から世界へ・フルリモート可】フロントエンドテックリード候補',
-              salary: '月給 45万円 〜 70万円',
-              viewsCount: 148
-            },
-            {
-              id: 'demo_job_2',
-              employmentType: '契約社員',
-              title: '【オープニングスタッフ募集】新規店舗の立ち上げ・店舗運営マネージャー候補',
-              salary: '月給 32万円 〜 45万円',
-              viewsCount: 92
-            }
-          ]
+          email: '',
+          representativeName: '',
+          contactName: '',
+          phone: '',
+          businessDescription: '',
+          invoiceNumber: '',
+          capital: '',
+          address: '',
+          accountingEmail: '',
+          status: 'pending',
+          jobs: []
         } as any);
-      } catch (e) {
+
+      } catch (e: any) {
         console.error('データ取得エラー:', e);
       } finally {
         setLoading(false);
@@ -75,7 +75,7 @@ export default function HomeDashboard() {
   }
 
   const jobs = (currentCompany as any).jobs || [];
-  const companyViews = (currentCompany as any).companyViewsCount || 124;
+  const companyViews = (currentCompany as any).companyViewsCount || 0;
   const currentStatus = { 
     text: (currentCompany as any).status === 'approved' ? '承認済み（公開中）' : '審査待ち', 
     color: (currentCompany as any).status === 'approved' ? '#166534' : '#b45309' 
@@ -93,10 +93,8 @@ export default function HomeDashboard() {
   if ((currentCompany as any).accountingEmail) filledFields++;
   const profileCompleteness = Math.round((filledFields / totalFields) * 100);
 
-  const upcomingInterviews = [
-    { id: 1, title: '【Aさん】一次面接・カジュアル面談', datetime: '10月11日(日) 14:00〜15:00', status: '確定' },
-    { id: 2, title: '【Bさん】最終面接', datetime: '10月14日(水) 11:00〜12:00', status: '調整中' }
-  ];
+  // 型エラー（TS7034/TS7005）を防ぐために明示的な型を指定
+  const upcomingInterviews: any[] = [];
 
   const quickLinks = [
     { title: '求人の効果的な書き方ガイド', desc: 'PV数を伸ばすためのコツやタイトルの付け方を解説', icon: '📝', href: '/dashboard/jobs' },
@@ -141,7 +139,7 @@ export default function HomeDashboard() {
                 <Link href="/dashboard/jobs" style={{ fontSize: '13px', color: '#2563eb', textDecoration: 'none', fontWeight: 'bold' }}>すべて見る →</Link>
               </div>
               {jobs.length === 0 ? (
-                <p style={{ color: '#64748b', fontSize: '13.5px', fontStyle: 'italic' }}>現在作成されている求人はありません。</p>
+                <p style={{ color: '#64748b', fontSize: '13.5px', fontStyle: 'italic', margin: '20px 0' }}>現在作成されている求人はありません。</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {jobs.slice(0, 3).map((job: any) => (
@@ -153,7 +151,7 @@ export default function HomeDashboard() {
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '11px', color: '#64748b' }}>閲覧数</div>
-                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#16a34a' }}>{job.viewsCount || 48} PV</div>
+                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#16a34a' }}>{job.viewsCount || 0} PV</div>
                       </div>
                     </div>
                   ))}
@@ -169,17 +167,21 @@ export default function HomeDashboard() {
                   詳細 →
                 </Link>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {upcomingInterviews.map((interview) => (
-                  <div key={interview.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: interview.status === '確定' ? '#166534' : '#b45309', background: interview.status === '確定' ? '#dcfce7' : '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>{interview.status}</span>
-                      <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#2563eb' }}>{interview.datetime}</span>
+              {upcomingInterviews.length === 0 ? (
+                <p style={{ color: '#64748b', fontSize: '13.5px', fontStyle: 'italic', margin: '20px 0' }}>直近の面談予定はありません。</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {upcomingInterviews.map((interview: any) => (
+                    <div key={interview.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: interview.status === '確定' ? '#166534' : '#b45309', background: interview.status === '確定' ? '#dcfce7' : '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>{interview.status}</span>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#2563eb' }}>{interview.datetime}</span>
+                      </div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#0f172a' }}>{interview.title}</div>
                     </div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#0f172a' }}>{interview.title}</div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>

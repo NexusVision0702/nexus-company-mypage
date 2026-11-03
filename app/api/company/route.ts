@@ -82,7 +82,8 @@ export async function PUT(request: Request) {
       businessPhone,
       businessEmail,
       businessDescription,
-      newsletter
+      newsletter,
+      stores // 💡 追加: リクエストから店舗・オフィス一覧を受け取る
     } = body;
 
     const command = new UpdateCommand({
@@ -116,7 +117,8 @@ export async function PUT(request: Request) {
             businessPhone = :businessPhone,
             businessEmail = :businessEmail,
             businessDescription = :businessDescription,
-            newsletter = :newsletter
+            newsletter = :newsletter,
+            stores = :stores
       `,
       ExpressionAttributeNames: {
         '#em': 'email',
@@ -149,7 +151,8 @@ export async function PUT(request: Request) {
         ':businessPhone': businessPhone || '',
         ':businessEmail': businessEmail || '',
         ':businessDescription': businessDescription || '',
-        ':newsletter': newsletter ?? false
+        ':newsletter': newsletter ?? false,
+        ':stores': stores || [] // 💡 追加: DynamoDBへ保存する値にマッピング
       },
       ReturnValues: 'ALL_NEW',
     });

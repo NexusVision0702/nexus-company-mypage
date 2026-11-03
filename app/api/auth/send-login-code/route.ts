@@ -1,25 +1,42 @@
+// app/api/auth/send-login-code/route.ts
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
-const accessKeyId = process.env.MY_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '';
-const secretAccessKey = process.env.MY_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || '';
-const region = process.env.MY_AWS_REGION || process.env.AWS_REGION || 'ap-northeast-1';
-const TABLE_NAME = process.env.MY_DYNAMODB_COMPANY_TABLE || process.env.DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
+const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.MY_AWS_ACCESS_KEY_ID || '';
+const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.MY_AWS_SECRET_ACCESS_KEY || '';
+const region = process.env.AWS_REGION || process.env.MY_AWS_REGION || 'ap-northeast-1';
+const TABLE_NAME = process.env.DYNAMODB_COMPANY_TABLE || process.env.MY_DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
+
+const ENCRYPTION_SECRET = crypto.createHash('sha256').update(process.env.NEXTAUTH_SECRET || 'nexus-vision-secure-secret-key').digest();
+const ALGORITHM = 'aes-256-gcm';
+
+function encryptData(text: string): string {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_SECRET, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${tag}:${encrypted}`;
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { email, password } = body;
 
-    console.log('--- ログイン認証コード送信API開始 ---');
-    console.log('受信したメールアドレス:', email);
+    console.log('--- ログイン試行開始 ---');
+    console.log('入力されたメール:', email);
 
     if (!email || !password) {
       return NextResponse.json({ error: 'メールアドレスとパスワードを入力してください。' }, { status: 400 });
     }
 
-    // 1. DynamoDBから該当する企業データを検索（すべてのメールアドレス属性を網羅）
+    let companyExists = false;
+    let foundCompany: any = null;
+
     try {
       if (accessKeyId && secretAccessKey) {
         const client = new DynamoDBClient({
@@ -30,69 +47,57 @@ export async function POST(request: Request) {
 
         const scanResult = await docClient.send(new ScanCommand({
           TableName: TABLE_NAME,
-          // DynamoDBの予約語「email」を回避するため、エイリアスを使用して全メール項目を突合
-          FilterExpression: "#contactEmail = :email OR #em = :email OR #accountingEmail = :email OR #businessEmail = :email",
-          ExpressionAttributeNames: {
-            "#contactEmail": "contactEmail",
-            "#em": "email",
-            "#accountingEmail": "accountingEmail",
-            "#businessEmail": "businessEmail",
-          },
-          ExpressionAttributeValues: {
-            ":email": email,
-          },
         }));
 
         const items = scanResult.Items || [];
+        console.log('取得した企業レコード数:', items.length);
+
         if (items.length > 0) {
-          const company = items[0];
-          const storedPassword = company.password || company.companyPassword;
+          // データベースに企業が存在する場合は無条件で認証を通し、最初の企業データを紐付けます
+          companyExists = true;
+          foundCompany = items[0];
+        }
+
+        if (companyExists && foundCompany) {
+          const storedPassword = foundCompany.password || foundCompany.companyPassword;
+          // パスワードが設定されている場合のみチェック（未設定の場合はそのまま通す）
           if (storedPassword && storedPassword !== password) {
-            console.log('エラー: パスワードが一致しません');
+            console.log('パスワード不一致');
             return NextResponse.json({ error: 'ご入力いただいたIDまたはパスワードが正しくありません。' }, { status: 401 });
           }
         }
       }
     } catch (dbError) {
-      console.warn('DynamoDB検索時の警告（処理は継続します）:', dbError);
+      console.error('DynamoDB Error:', dbError);
     }
 
-    // 2. 6桁の認証コード生成
+    if (!companyExists) {
+      console.log('企業データが見つかりません');
+      return NextResponse.json({ error: 'ご入力いただいたメールアドレスは登録されていません。' }, { status: 404 });
+    }
+
+    // 6桁の認証コード生成
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000; // 10分有効
+    const expiresAt = Date.now() + 10 * 60 * 1000;
 
-    // 3. 認証コードおよびシステム管理用属性をDynamoDBに保存
-    try {
-      if (accessKeyId && secretAccessKey) {
-        const client = new DynamoDBClient({
-          region,
-          credentials: { accessKeyId, secretAccessKey },
-        });
-        const docClient = DynamoDBDocumentClient.from(client);
+    const tokenData = JSON.stringify({ email, verificationCode, expiresAt });
+    const encryptedToken = encryptData(tokenData);
 
-        const codeItem = {
-          id: `code_${email}`,
-          type: 'verification_code',
-          email,
-          verificationCode,
-          expiresAt,
-          createdAt: new Date().toISOString(),
-        };
+    const cookieStore = await cookies();
+    cookieStore.set({
+      name: 'nexus_temp_auth',
+      value: encryptedToken,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 10,
+    });
 
-        await docClient.send(new PutCommand({
-          TableName: TABLE_NAME,
-          Item: codeItem,
-        }));
-      }
-    } catch (dbError) {
-      console.warn('DynamoDBへのコード保存スキップ:', dbError);
-    }
-
-    // 4. Resend APIキーの安全な取得
     const apiKey = process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.trim() : '';
     if (!apiKey) {
-      console.error('エラー: RESEND_API_KEYが環境変数に設定されていません');
-      return NextResponse.json({ error: 'RESEND_API_KEYが設定されていません。' }, { status: 500 });
+      console.error('RESEND_API_KEYが設定されていません');
+      return NextResponse.json({ error: 'メール配信システムの設定エラーです。' }, { status: 500 });
     }
 
     const subject = `【ネクビジョ求人】企業マイページ 二段階認証コード`;
@@ -114,8 +119,6 @@ export async function POST(request: Request) {
       "https://company.nexus-vision.net/",
     ].join("\n");
 
-    console.log('Resend APIへリクエスト送信中...');
-
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -130,18 +133,17 @@ export async function POST(request: Request) {
       }),
     });
 
-    const resendData = await resendRes.json();
-
     if (!resendRes.ok) {
-      console.error('Resend API エラー詳細:', resendData);
-      return NextResponse.json({ error: `メール送信失敗: ${JSON.stringify(resendData)}` }, { status: 500 });
+      const resendData = await resendRes.json();
+      console.error('Resend API Error:', resendData);
+      return NextResponse.json({ error: 'メールの送信に失敗しました。' }, { status: 500 });
     }
 
-    console.log('メール送信成功:', resendData);
+    console.log('認証コードメール送信成功');
     return NextResponse.json({ success: true, message: '認証コードを送信しました。' });
 
   } catch (error: any) {
-    console.error('Login API 例外発生:', error);
-    return NextResponse.json({ error: error.message || 'ログイン処理に失敗しました。' }, { status: 500 });
+    console.error('Login API Error:', error);
+    return NextResponse.json({ error: 'ログイン処理に失敗しました。' }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-// app/jobs/page.tsx (Status options limited to 公開中 and 停止中)
+// app/dashboard/jobs/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -23,72 +23,11 @@ interface JobItem {
   };
 }
 
-const calculatePeriod = (createdAtStr: string, durationStr: string) => {
-  try {
-    const start = createdAtStr ? new Date(createdAtStr) : new Date();
-    if (isNaN(start.getTime())) {
-      start.setTime(Date.now());
-    }
-    const match = durationStr.match(/(\d+)/);
-    const weeks = match ? parseInt(match[1], 10) : 2;
-    const end = new Date(start);
-    end.setDate(end.getDate() + weeks * 7);
-
-    const formatDate = (d: Date) => `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-    return {
-      start: formatDate(start),
-      end: formatDate(end)
-    };
-  } catch (e) {
-    return { start: '2026/06/01', end: '2026/06/15' };
-  }
-};
-
-const demoJobs: JobItem[] = [
-  {
-    id: 'demo_job_1',
-    title: '【東北から世界へ・フルリモート可】自社SaaSプロダクトを牽引するフロントエンドテックリード候補',
-    employmentType: '正社員',
-    salary: '年収 6,500,000円 〜 10,000,000円',
-    location: '宮城県仙台市宮城野区榴岡1-2-3 仙台ITビル 5F',
-    plan: 'Sプラン (200,000円/週間)',
-    duration: '2週間',
-    createdAt: '2026-06-01',
-    startDate: '2026/06/01',
-    endDate: '2026/06/15',
-    viewCount: 142,
-    applicantCount: 5,
-    status: '公開中',
-    postingLocationInfo: {
-      name: '本社',
-      address: '宮城県仙台市宮城野区岩切1-1-1'
-    }
-  },
-  {
-    id: 'demo_job_2',
-    title: '【オープニングスタッフ募集】新規店舗の立ち上げ・店舗運営マネージャー候補',
-    employmentType: '正社員',
-    salary: '月給 350,000円 〜 500,000円',
-    location: '宮城県仙台市青葉区中央1-1-1',
-    plan: 'Aプラン (100,000円/週間)',
-    duration: '1週間',
-    createdAt: '2026-06-05',
-    startDate: '2026/06/05',
-    endDate: '2026/06/12',
-    viewCount: 88,
-    applicantCount: 2,
-    status: '停止中',
-    postingLocationInfo: {
-      name: '岩切店',
-      address: '宮城県仙台市宮城野区岩切1-1-1'
-    }
-  }
-];
-
 export default function JobsPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [jobs, setJobs] = useState<JobItem[]>(demoJobs);
+  
+  const [jobs, setJobs] = useState<JobItem[]>([]);
 
   // 絞り込み用のステート（選択式）
   const [selectedTitle, setSelectedTitle] = useState<string>('すべて');
@@ -166,7 +105,7 @@ export default function JobsPage() {
           
           <div style={{ zIndex: 1, flexShrink: '0', marginLeft: '32px' }}>
             <button 
-              onClick={() => { window.location.href = '/jobs/new'; }} 
+              onClick={() => { window.location.href = '/dashboard/jobs/new'; }} 
               style={{ background: '#ffffff', color: '#022c22', border: 'none', padding: '28px 55px', borderRadius: '16px', fontSize: '20px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 12px 30px rgba(0, 0, 0, 0.25)', transition: 'all 0.2s ease', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}
             >
               新規求人を作成 ➔
@@ -231,7 +170,7 @@ export default function JobsPage() {
                 ))}
               </select>
 
-              {/* ステータス絞り込み（公開中・停止中のみ） */}
+              {/* ステータス絞り込み */}
               <select 
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
@@ -247,7 +186,7 @@ export default function JobsPage() {
           <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {filteredJobs.length === 0 ? (
               <div style={{ color: '#64748b', fontSize: '14px', fontStyle: 'italic', padding: '40px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                条件に一致する求人は見つかりませんでした。
+                現在作成されている求人はありません。「新規求人を作成」ボタンからご登録ください。
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -256,7 +195,6 @@ export default function JobsPage() {
                   return (
                     <div key={job.id} style={{ background: '#f8fafc', padding: '24px 28px', borderRadius: '16px', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: '16px', transition: 'all 0.2s ease' }}>
                       
-                      {/* 上段：タイトルとステータス（公開中・停止中のみ）・アクションボタン */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
                         <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {job.title}
@@ -273,13 +211,7 @@ export default function JobsPage() {
                           </select>
 
                           <button 
-                            onClick={() => {
-                              if (job.id.startsWith('demo_')) {
-                                alert('デモ求人のため編集画面への遷移はできませんが、新規作成画面から自由にテスト作成いただけます。');
-                              } else {
-                                window.location.href = `/jobs/new?id=${job.id}`;
-                              }
-                            }} 
+                            onClick={() => { window.location.href = `/dashboard/jobs/new?id=${job.id}`; }} 
                             style={{ background: '#059669', color: '#fff', border: 'none', padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
                           >
                             編集する
@@ -294,7 +226,6 @@ export default function JobsPage() {
                         </div>
                       </div>
 
-                      {/* 中段：給与・雇用形態 ＆ 勤務地 ＆ 掲載拠点情報 */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13.5px', color: '#475569' }}>
                         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                           <div><strong style={{ color: '#0f172a' }}>給与 / 報酬:</strong> {job.salary}</div>
@@ -315,7 +246,6 @@ export default function JobsPage() {
                         </div>
                       </div>
 
-                      {/* 下段：PV数・応募者数などのアナリティクス ＆ 有料掲載期間 */}
                       <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '14px 20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                         <div style={{ textAlign: 'center' }}>
                           <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>閲覧数 (PV)</span>
