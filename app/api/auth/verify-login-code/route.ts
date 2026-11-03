@@ -77,14 +77,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '認証コードが間違っています。' }, { status: 400 });
     }
 
-    // 6. データベースから該当するメールアドレスを持つ企業データを厳密に検索
+    // 6. データベースからログイン用email（doc.email）のみで厳格に検索
     const scanResult = await docClient.send(new ScanCommand({
       TableName: TABLE_NAME,
     }));
 
-    const companyRecord = scanResult.Items?.find(
-      (doc) => (doc.email === email || doc.accountingEmail === email || doc.businessEmail === email || doc.contactEmail === email) && !doc.id.startsWith('code_')
-    );
+    const inputEmail = String(email).toLowerCase().trim();
+    const companyRecord = scanResult.Items?.find((doc) => {
+      if (!doc.id || doc.id.startsWith('code_')) return false;
+      const dbEmail = doc.email ? String(doc.email).toLowerCase().trim() : '';
+      return dbEmail === inputEmail;
+    });
 
     // ★重要: データベースに登録されていない企業の場合は、ここで確実に拒否する
     if (!companyRecord) {

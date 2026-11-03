@@ -46,7 +46,16 @@ export async function POST(request: Request) {
       const items = scanResult.Items || [];
       const inputEmail = String(email).toLowerCase().trim();
 
-      // 「ログイン用email（doc.email）」のみで厳格に照合
+      // --- デバッグ用ログ出力 ---
+      console.log('--- ログイン検索デバッグ ---');
+      console.log('入力されたメールアドレス (inputEmail):', inputEmail);
+      console.log('DynamoDBから取得した総レコード数:', items.length);
+      items.forEach((doc, index) => {
+        console.log(`[${index}] id: ${doc.id}, email: "${doc.email}"`);
+      });
+      // -------------------------
+
+      // ログイン用email（doc.email）のみで厳格に照合
       foundCompany = items.find((doc) => {
         if (doc.id && doc.id.startsWith('code_')) return false;
         const dbEmail = doc.email ? String(doc.email).toLowerCase().trim() : '';
@@ -56,7 +65,7 @@ export async function POST(request: Request) {
       if (foundCompany) {
         const storedPassword = foundCompany.password || foundCompany.companyPassword;
         
-        // ★ 修正：パスワードが登録されていない、または入力値と一致しない場合は必ず401エラーで弾く
+        // パスワードが登録されていない、または入力値と一致しない場合は401エラーで弾く
         if (!storedPassword || storedPassword !== password) {
           return NextResponse.json({ error: 'ご入力いただいたIDまたはパスワードが正しくありません。' }, { status: 401 });
         }
