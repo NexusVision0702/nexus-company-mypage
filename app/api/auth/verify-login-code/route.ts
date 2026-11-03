@@ -72,33 +72,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '認証コードの有効期限（10分）が切れています。もう一度送信し直してください。' }, { status: 400 });
     }
 
-    // 5. コードの一致チェック（ここで適当なコードを完全に弾きます）
+    // 5. コードの一致チェック
     if (tokenData.verificationCode !== verificationCode.trim()) {
       return NextResponse.json({ error: '認証コードが間違っています。' }, { status: 400 });
     }
 
-    // 6. 該当するメールアドレスを持つ「実際の企業データ（companyId）」をDBから検索
-    let companyId = 'comp_1793266043558'; // フォールバック用ID
-    try {
-      const scanResult = await docClient.send(new ScanCommand({
-        TableName: TABLE_NAME,
-      }));
+    // 6. データベースから該当するメールアドレスを持つ企業データを厳密に検索
+    const scanResult = await docClient.send(new ScanCommand({
+      TableName: TABLE_NAME,
+    }));
 
-      const companyRecord = scanResult.Items?.find(
-        (doc) => (doc.email === email || doc.accountingEmail === email || doc.businessEmail === email || doc.contactEmail === email) && !doc.id.startsWith('code_')
-      );
+    const companyRecord = scanResult.Items?.find(
+      (doc) => (doc.email === email || doc.accountingEmail === email || doc.businessEmail === email || doc.contactEmail === email) && !doc.id.startsWith('code_')
+    );
 
-      if (companyRecord) {
-        companyId = companyRecord.id;
-      }
-    } catch (dbError) {
-      console.warn('企業データ検索時の警告:', dbError);
+    // ★重要: データベースに登録されていない企業の場合は、ここで確実に拒否する
+    if (!companyRecord) {
+      return NextResponse.json({ error: 'このメールアドレスで登録された企業データは存在しません。' }, { status: 401 });
     }
+
+    const companyId = companyRecord.id;
 
     // 7. 使用済みの一時認証用Cookieを削除（セキュリティ対策）
     cookieStore.delete('nexus_temp_auth');
 
-    // 8. ログイン成功の HttpOnly Cookie を発行
+    // 8. ログイン成功のセキュアな HttpOnly Cookie を発行
     cookieStore.set({
       name: 'nexus_company_id',
       value: companyId,

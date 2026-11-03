@@ -17,6 +17,7 @@ export default function LoginPage() {
   // ステップ1: ID(メールアドレス) & パスワード検証 ＆ 認証コード送信
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // 二重送信防止
     setErrorMsg('');
     setSuccessMsg('');
 
@@ -50,6 +51,7 @@ export default function LoginPage() {
   // ステップ2: 認証コード検証 ＆ ログイン完了
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // 二重送信防止
     setErrorMsg('');
 
     if (!verificationCode.trim()) {
@@ -70,14 +72,10 @@ export default function LoginPage() {
         throw new Error(data.error || '認証コードが正しくありません。');
       }
 
-      // ログイン成功時に会社IDをローカルストレージとCookieの両方に保存（ミドルウェア対策）
       const companyIdToSave = data.companyId || 'demo_company_001';
       localStorage.setItem('nexus_company_id', companyIdToSave);
-      
-      // ミドルウェアが読み取れるようにCookieにもセット（有効期限1日）
       document.cookie = `nexus_company_id=${companyIdToSave}; path=/; max-age=86400; SameSite=Lax`;
 
-      // ログイン後は最初にホーム画面（/home）へ飛ぶ
       router.push('/home');
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -123,7 +121,7 @@ export default function LoginPage() {
           )}
 
           {step === 'credentials' && (
-            <form onSubmit={handleSendCode} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <form onSubmit={handleSendCode} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
                   ID (担当者メールアドレス) *
@@ -131,6 +129,7 @@ export default function LoginPage() {
                 <input 
                   type="email"
                   required
+                  autoComplete="email"
                   placeholder="example@company.co.jp"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -145,6 +144,7 @@ export default function LoginPage() {
                 <input 
                   type="password"
                   required
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -163,7 +163,7 @@ export default function LoginPage() {
           )}
 
           {step === 'code' && (
-            <form onSubmit={handleVerifyCode} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <form onSubmit={handleVerifyCode} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
                   6桁の二段階認証コード *
@@ -172,6 +172,7 @@ export default function LoginPage() {
                   type="text"
                   maxLength={6}
                   required
+                  autoComplete="one-time-code"
                   placeholder="123456"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
