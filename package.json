@@ -12,6 +12,7 @@
     "@aws-sdk/client-dynamodb": "^3.1159.0",
     "@aws-sdk/lib-dynamodb": "^3.1159.0",
     "@tailwindcss/postcss": "^4.3.4",
+    "bcryptjs": "^3.0.3",
     "next": "^16.4.3",
     "postcss": "^8.5.32",
     "react": "^19.3.1",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

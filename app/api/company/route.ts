@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   }
 }
 
-// 2. 企業データの更新・保存 (PUT - 全属性網羅・予約語完全対応)
+// 2. 企業データの更新・保存 (PUT - 動的マージ更新により既存データを消さない)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -54,106 +54,49 @@ export async function PUT(request: Request) {
 
     const companyId = body.companyId || cookieCompanyId || 'comp_1793266043558';
 
-    const {
-      companyName,
-      corporateNumber,
-      corporateType,
-      invoiceNumber,
-      representativeName,
-      licenseNumber,
-      capital,
-      establishYear,
-      establishMonth,
-      establishDay,
-      industry,
-      employeeRegular,
-      employeePart,
-      contactName,
-      accountingContactName,
-      phone,
-      email,
-      accountingEmail,
-      homepageUrl,
-      branchType,
-      postalCode,
-      prefecture,
-      city,
-      addressSub,
-      businessPhone,
-      businessEmail,
-      businessDescription,
-      newsletter,
-      stores // 💡 追加: リクエストから店舗・オフィス一覧を受け取る
-    } = body;
+    // 許容する更新対象のキー一覧
+    const allowedKeys = [
+      'companyName', 'corporateNumber', 'corporateType', 'invoiceNumber',
+      'representativeName', 'licenseNumber', 'capital', 'establishYear',
+      'establishMonth', 'establishDay', 'industry', 'employeeRegular',
+      'employeePart', 'contactName', 'accountingContactName', 'phone',
+      'contactEmail', 'email', 'accountingEmail', 'homepageUrl', 'branchType',
+      'postalCode', 'prefecture', 'city', 'addressSub', 'businessPhone',
+      'businessEmail', 'businessDescription', 'newsletter', 'stores'
+    ];
+
+    const updateExpressions: string[] = [];
+    const expressionAttributeNames: Record<string, string> = {};
+    const expressionAttributeValues: Record<string, any> = {};
+
+    // リクエストボディに含まれていた項目だけを動的にUpdateExpressionに追加
+    for (const key of allowedKeys) {
+      if (body[key] !== undefined) {
+        // DynamoDBの予約語（emailなど）対策
+        const attrNameKey = key === 'email' ? '#em' : `#${key}`;
+        const attrValKey = `:${key}`;
+
+        if (key === 'email') {
+          expressionAttributeNames['#em'] = 'email';
+        } else {
+          expressionAttributeNames[`#${key}`] = key;
+        }
+
+        updateExpressions.push(`${attrNameKey} = ${attrValKey}`);
+        expressionAttributeValues[attrValKey] = body[key];
+      }
+    }
+
+    if (updateExpressions.length === 0) {
+      return NextResponse.json({ error: '更新するデータがありません。' }, { status: 400 });
+    }
 
     const command = new UpdateCommand({
       TableName: tableName,
       Key: { id: companyId },
-      UpdateExpression: `
-        SET companyName = :companyName,
-            corporateNumber = :corporateNumber,
-            corporateType = :corporateType,
-            invoiceNumber = :invoiceNumber,
-            representativeName = :representativeName,
-            licenseNumber = :licenseNumber,
-            capital = :capital,
-            establishYear = :establishYear,
-            establishMonth = :establishMonth,
-            establishDay = :establishDay,
-            industry = :industry,
-            employeeRegular = :employeeRegular,
-            employeePart = :employeePart,
-            contactName = :contactName,
-            accountingContactName = :accountingContactName,
-            phone = :phone,
-            #em = :email,
-            accountingEmail = :accountingEmail,
-            homepageUrl = :homepageUrl,
-            branchType = :branchType,
-            postalCode = :postalCode,
-            prefecture = :prefecture,
-            city = :city,
-            addressSub = :addressSub,
-            businessPhone = :businessPhone,
-            businessEmail = :businessEmail,
-            businessDescription = :businessDescription,
-            newsletter = :newsletter,
-            stores = :stores
-      `,
-      ExpressionAttributeNames: {
-        '#em': 'email',
-      },
-      ExpressionAttributeValues: {
-        ':companyName': companyName || '',
-        ':corporateNumber': corporateNumber || '',
-        ':corporateType': corporateType || '株式会社',
-        ':invoiceNumber': invoiceNumber || '',
-        ':representativeName': representativeName || '',
-        ':licenseNumber': licenseNumber || '',
-        ':capital': capital || '',
-        ':establishYear': establishYear || '',
-        ':establishMonth': establishMonth || '',
-        ':establishDay': establishDay || '',
-        ':industry': industry || [],
-        ':employeeRegular': employeeRegular || '',
-        ':employeePart': employeePart || '',
-        ':contactName': contactName || '',
-        ':accountingContactName': accountingContactName || '',
-        ':phone': phone || '',
-        ':email': email || '',
-        ':accountingEmail': accountingEmail || '',
-        ':homepageUrl': homepageUrl || '',
-        ':branchType': branchType || '本社',
-        ':postalCode': postalCode || '',
-        ':prefecture': prefecture || '',
-        ':city': city || '',
-        ':addressSub': addressSub || '',
-        ':businessPhone': businessPhone || '',
-        ':businessEmail': businessEmail || '',
-        ':businessDescription': businessDescription || '',
-        ':newsletter': newsletter ?? false,
-        ':stores': stores || [] // 💡 追加: DynamoDBへ保存する値にマッピング
-      },
+      UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+      ExpressionAttributeNames: expressionAttributeNames,
+      ExpressionAttributeValues: expressionAttributeValues,
       ReturnValues: 'ALL_NEW',
     });
 

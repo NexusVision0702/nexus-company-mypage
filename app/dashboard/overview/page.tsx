@@ -62,23 +62,31 @@ const industryOptions = [
 export default function CompanyOverviewPage() {
   const [loading, setLoading] = useState<boolean>(true);
 
-  const [editAuth, setEditAuth] = useState<boolean>(false);
+  // モダンスタイリッシュなトースト通知
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
+
+  const [editEmail, setEditEmail] = useState<boolean>(false);
+  const [editPassword, setEditPassword] = useState<boolean>(false);
   const [editBasic, setEditBasic] = useState<boolean>(false);
   const [editContact, setEditContact] = useState<boolean>(false);
   const [editBusiness, setEditBusiness] = useState<boolean>(false);
 
   const [authData, setAuthData] = useState({
+    originalEmail: '',
     email: '',
-    newEmail: '',
-    password: '••••••••',
-    newPassword: '',
+    password: '',
     confirmPassword: ''
   });
 
-  const [authStep, setAuthStep] = useState<'idle' | 'waiting_email_2fa' | 'waiting_pass_2fa' | 'waiting_invoice_email_2fa'>('idle');
-  const [authType, setAuthType] = useState<'email' | 'password' | 'invoice_email' | null>(null);
+  const [emailStep, setEmailStep] = useState<'idle' | 'waiting_2fa'>('idle');
   const [verificationCodeInput, setVerificationCodeInput] = useState('');
-  const [mockSentCode, setMockSentCode] = useState('');
 
   const [formData, setFormData] = useState({
     companyName: '',
@@ -110,7 +118,6 @@ export default function CompanyOverviewPage() {
     newsletter: false
   });
 
-  // 本番環境用：ログイン中の企業データを動的に取得する
   useEffect(() => {
     const fetchCompanyData = async () => {
       try {
@@ -120,11 +127,9 @@ export default function CompanyOverviewPage() {
           if (parts.length === 2) return parts.pop()?.split(';').shift();
         };
 
-        // クッキーまたはローカルストレージからログイン中の企業IDを取得
         const companyId = getCookie('nexus_company_id') || localStorage.getItem('nexus_company_id');
 
         if (!companyId) {
-          // 未認証の場合はログイン画面へ強制送還
           window.location.href = '/login';
           return;
         }
@@ -132,8 +137,8 @@ export default function CompanyOverviewPage() {
         const res = await fetch(`/api/company?companyId=${companyId}`);
         
         if (res.status === 401 || res.status === 403) {
-          alert('セッションの有効期限が切れています。再度ログインしてください。');
-          window.location.href = '/login';
+          showToast('セッションの有効期限が切れています。再度ログインしてください。', 'error');
+          setTimeout(() => { window.location.href = '/login'; }, 1500);
           return;
         }
 
@@ -142,12 +147,13 @@ export default function CompanyOverviewPage() {
           if (data && data.company) {
             const comp = data.company;
             
-            const userEmail = comp.email || comp.contactEmail || comp.businessEmail || '';
-            setAuthData(prev => ({
-              ...prev,
+            const userEmail = comp.email || comp.businessEmail || '';
+            setAuthData({
+              originalEmail: userEmail,
               email: userEmail,
-              newEmail: userEmail
-            }));
+              password: '',
+              confirmPassword: ''
+            });
 
             let parsedIndustry: string[] = [];
             if (Array.isArray(comp.industry)) {
@@ -206,28 +212,6 @@ export default function CompanyOverviewPage() {
     fetchCompanyData();
   }, []);
 
-  const handlePostalCodeChange = async (code: string) => {
-    const cleanCode = code.replace(/[^0-9]/g, '').slice(0, 7);
-    setFormData(prev => ({ ...prev, postalCode: cleanCode }));
-
-    if (cleanCode.length === 7) {
-      try {
-        const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${cleanCode}`);
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          const result = data.results[0];
-          setFormData(prev => ({
-            ...prev,
-            prefecture: result.address1,
-            city: result.address2 + result.address3
-          }));
-        }
-      } catch (err) {
-        console.error('住所自動取得エラー:', err);
-      }
-    }
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const target = e.target;
     const name = target.name;
@@ -263,35 +247,130 @@ export default function CompanyOverviewPage() {
     });
   };
 
-  const handleRequestAuthUpdate = (type: 'email' | 'password' | 'invoice_email') => {
-    setAuthType(type);
-    const mockCode = String(Math.floor(100000 + Math.random() * 900000));
-    setMockSentCode(mockCode);
-
-    if (type === 'email') {
-      setAuthStep('waiting_email_2fa');
-      alert(`【シミュレーション】新アドレス宛に認証コード [ ${mockCode} ] を送信しました。`);
-    } else if (type === 'password') {
-      setAuthStep('waiting_pass_2fa');
-      alert(`【シミュレーション】現在のアドレス宛に認証コード [ ${mockCode} ] を送信しました。`);
-    } else if (type === 'invoice_email') {
-      setAuthStep('waiting_invoice_email_2fa');
-      alert(`【シミュレーション】新請求書アドレス宛に認証コード [ ${mockCode} ] を送信しました。`);
-    }
-  };
-
-  const handleVerify2FA = async () => {
-    if (verificationCodeInput.trim() !== mockSentCode) {
-      alert('二段階認証コードが一致しません。');
+  // 1. メールアドレス変更：専用APIで認証コード送信
+  const handleRequestEmailChange = async () => {
+    if (!authData.email.trim()) {
+      showToast('メールアドレスを入力してください。', 'error');
       return;
     }
-    alert('変更が完了しました！');
-    setAuthStep('idle');
-    setAuthType(null);
-    setVerificationCodeInput('');
-    setEditAuth(false);
+    if (authData.email === authData.originalEmail) {
+      showToast('現在のメールアドレスと同じです。', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/company/send-email-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authData.email }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setEmailStep('waiting_2fa');
+        showToast(`新しいメールアドレス宛に二段階認証コードを送信しました。`);
+      } else {
+        showToast(`メール送信に失敗しました: ${data.error || '不明なエラー'}`, 'error');
+      }
+    } catch (e: any) {
+      showToast(`通信エラーが発生しました: ${e.message}`, 'error');
+    }
   };
 
+  // 2. メールアドレス変更：マイページ専用の独立した検証APIで確認＆DB更新
+  const handleVerifyAndSaveEmail = async () => {
+    if (!verificationCodeInput.trim()) {
+      showToast('二段階認証コードを入力してください。', 'error');
+      return;
+    }
+
+    try {
+      const verifyRes = await fetch('/api/company/verify-email-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: authData.email, 
+          code: verificationCodeInput.trim() 
+        }),
+      });
+
+      if (!verifyRes.ok) {
+        const errData = await verifyRes.json();
+        showToast(`認証に失敗しました: ${errData.error || 'コードが正しくありません'}`, 'error');
+        return;
+      }
+
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+      };
+      const companyId = getCookie('nexus_company_id') || localStorage.getItem('nexus_company_id');
+
+      const updateRes = await fetch('/api/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, email: authData.email }),
+      });
+
+      if (updateRes.ok) {
+        showToast('メールアドレスを正常に更新しました！');
+        setAuthData(prev => ({ ...prev, originalEmail: authData.email }));
+        setEditEmail(false);
+        setEmailStep('idle');
+        setVerificationCodeInput('');
+      } else {
+        const errData = await updateRes.json();
+        showToast(`保存に失敗しました: ${errData.error || '不明なエラー'}`, 'error');
+      }
+    } catch (e: any) {
+      showToast(`通信エラーが発生しました: ${e.message}`, 'error');
+    }
+  };
+
+  // 3. パスワード変更
+  const handleSavePassword = async () => {
+    if (!authData.password) {
+      showToast('新しいパスワードを入力してください。', 'error');
+      return;
+    }
+    if (authData.password !== authData.confirmPassword) {
+      showToast('新しいパスワードと確認用パスワードが一致しません。', 'error');
+      return;
+    }
+    if (authData.password.length < 6) {
+      showToast('パスワードは6文字以上で入力してください。', 'error');
+      return;
+    }
+
+    try {
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+      };
+      const companyId = getCookie('nexus_company_id') || localStorage.getItem('nexus_company_id');
+
+      const updateRes = await fetch('/api/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, password: authData.password }),
+      });
+
+      if (updateRes.ok) {
+        showToast('パスワードを正常に更新しました！');
+        setAuthData(prev => ({ ...prev, password: '', confirmPassword: '' }));
+        setEditPassword(false);
+      } else {
+        const errData = await updateRes.json();
+        showToast(`保存に失敗しました: ${errData.error || '不明なエラー'}`, 'error');
+      }
+    } catch (e: any) {
+      showToast(`通信エラーが発生しました: ${e.message}`, 'error');
+    }
+  };
+
+  // 4. その他のセクション保存
   const handleSaveSection = async (sectionName: string) => {
     try {
       const getCookie = (name: string) => {
@@ -302,8 +381,8 @@ export default function CompanyOverviewPage() {
       const companyId = getCookie('nexus_company_id') || localStorage.getItem('nexus_company_id');
 
       if (!companyId) {
-        alert('認証情報が見つかりません。再度ログインしてください。');
-        window.location.href = '/login';
+        showToast('認証情報が見つかりません。再度ログインしてください。', 'error');
+        setTimeout(() => { window.location.href = '/login'; }, 1500);
         return;
       }
 
@@ -314,16 +393,16 @@ export default function CompanyOverviewPage() {
       });
 
       if (res.ok) {
-        alert(`${sectionName}を更新しました！`);
+        showToast(`${sectionName}を更新しました！`);
         if (sectionName === '基本情報') setEditBasic(false);
         if (sectionName === '連絡先情報') setEditContact(false);
         if (sectionName === '事業・詳細情報') setEditBusiness(false);
       } else {
         const errData = await res.json();
-        alert(`保存に失敗しました: ${errData.error || '不明なエラー'}`);
+        showToast(`保存に失敗しました: ${errData.error || '不明なエラー'}`, 'error');
       }
     } catch (e: any) {
-      alert(`通信エラーが発生しました: ${e.message}`);
+      showToast(`通信エラーが発生しました: ${e.message}`, 'error');
     }
   };
 
@@ -345,7 +424,33 @@ export default function CompanyOverviewPage() {
   });
 
   return (
-    <div style={{ minHeight: '90vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '60px 40px', boxSizing: 'border-box' }}>
+    <div style={{ minHeight: '90vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '60px 40px', boxSizing: 'border-box', position: 'relative' }}>
+      
+      {/* モダンスタイリッシュなトースト通知 */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          background: toast.type === 'success' ? '#0f172a' : '#991b1b',
+          color: '#ffffff',
+          padding: '14px 22px',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '13.5px',
+          fontWeight: '600',
+          animation: 'slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          letterSpacing: '-0.01em'
+        }}>
+          <span>{toast.type === 'success' ? '✨' : '⚠️'}</span>
+          <span>{toast.message}</span>
+        </div>
+      )}
+
       <div style={{ maxWidth: '1150px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid #e2e8f0', paddingBottom: '24px' }}>
@@ -367,24 +472,78 @@ export default function CompanyOverviewPage() {
         </div>
 
         {/* ログイン情報セクション */}
-        <div style={{ background: '#ffffff', borderRadius: '16px', border: editAuth ? '2px solid #166534' : '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <div style={{ padding: '24px 32px', background: editAuth ? '#f0fdf4' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+          <div style={{ padding: '24px 32px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: 0 }}>ログイン情報（メールアドレス・パスワード）</h3>
-            {!editAuth ? (
-              <button onClick={() => setEditAuth(true)} style={{ background: '#166534', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>編集する</button>
-            ) : (
-              <button onClick={() => { setEditAuth(false); setAuthStep('idle'); }} style={{ background: '#cbd5e1', color: '#1e293b', border: 'none', padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>キャンセル</button>
-            )}
           </div>
-          <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>メインメールアドレス (ログインID)</label>
-              <input type="email" value={authData.email} disabled style={getInputStyle(false)} />
+
+          <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+            
+            {/* 左側：メールアドレス変更エリア */}
+            <div style={{ background: editEmail ? '#f0fdf4' : '#f8fafc', border: editEmail ? '2px solid #166534' : '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>メールアドレス変更</span>
+                {!editEmail ? (
+                  <button onClick={() => setEditEmail(true)} style={{ background: '#166534', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>編集する</button>
+                ) : (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {emailStep === 'idle' ? (
+                      <button onClick={handleRequestEmailChange} style={{ background: '#166534', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>認証コード送信</button>
+                    ) : (
+                      <button onClick={handleVerifyAndSaveEmail} style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>コード確認・変更完了</button>
+                    )}
+                    <button onClick={() => { setEditEmail(false); setEmailStep('idle'); }} style={{ background: '#cbd5e1', color: '#1e293b', border: 'none', padding: '6px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>キャンセル</button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>メインメールアドレス (ログインID)</label>
+                <input type="email" name="email" value={authData.email} onChange={handleAuthChange} disabled={!editEmail} style={getInputStyle(editEmail)} />
+              </div>
+
+              {emailStep === 'waiting_2fa' && (
+                <div style={{ background: '#fff', border: '1px solid #166534', padding: '16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#166534' }}>
+                    ✉️ 新しいメールアドレス ({authData.email}) 宛に認証コードを送信しました。
+                  </div>
+                  <input 
+                    type="text" 
+                    value={verificationCodeInput} 
+                    onChange={e => setVerificationCodeInput(e.target.value)} 
+                    placeholder="6桁のコード入力" 
+                    maxLength={6}
+                    style={{ ...getInputStyle(true, false), background: '#fff', fontSize: '16px', letterSpacing: '0.1em', fontWeight: 'bold' }} 
+                  />
+                </div>
+              )}
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>パスワード</label>
-              <input type="password" value={authData.password} disabled style={getInputStyle(false)} />
+
+            {/* 右側：パスワード変更エリア */}
+            <div style={{ background: editPassword ? '#f0fdf4' : '#f8fafc', border: editPassword ? '2px solid #166534' : '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>パスワード変更</span>
+                {!editPassword ? (
+                  <button onClick={() => setEditPassword(true)} style={{ background: '#166534', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>編集する</button>
+                ) : (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button onClick={handleSavePassword} style={{ background: '#166534', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>変更を保存</button>
+                    <button onClick={() => setEditPassword(false)} style={{ background: '#cbd5e1', color: '#1e293b', border: 'none', padding: '6px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>キャンセル</button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>新しいパスワード</label>
+                <input type="password" name="password" value={authData.password} onChange={handleAuthChange} placeholder="6文字以上で入力" disabled={!editPassword} style={getInputStyle(editPassword)} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>新しいパスワード（確認用）</label>
+                <input type="password" name="confirmPassword" value={authData.confirmPassword} onChange={handleAuthChange} placeholder="もう一度入力してください" disabled={!editPassword} style={getInputStyle(editPassword)} />
+              </div>
             </div>
+
           </div>
         </div>
 
@@ -453,7 +612,7 @@ export default function CompanyOverviewPage() {
           </div>
           <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>ご担当者名</label>
+              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>採用担当者</label>
               <input type="text" name="contactName" value={formData.contactName} onChange={handleChange} disabled={!editContact} style={getInputStyle(editContact)} />
             </div>
             <div>

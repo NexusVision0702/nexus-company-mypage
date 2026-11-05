@@ -9,11 +9,9 @@ const secretAccessKey = process.env.MY_AWS_SECRET_ACCESS_KEY || process.env.AWS_
 const region = process.env.MY_AWS_REGION || process.env.AWS_REGION || 'ap-northeast-1';
 const TABLE_NAME = process.env.MY_DYNAMODB_COMPANY_TABLE || process.env.DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
 
-// 暗号化・復号用の秘密鍵設定
-const ENCRYPTION_SECRET = crypto.createHash('sha256').update(process.env.NEXTAUTH_SECRET || 'nexus-vision-secure-secret-key').digest();
+const ENCRYPTION_SECRET = crypto.createHash('sha256').update(process.env.NEXTAUTH_SECRET || process.env.RESEND_API_KEY || 'nexus-vision-secure-secret-key').digest();
 const ALGORITHM = 'aes-256-gcm';
 
-// トークンを復号する関数
 function decryptData(encryptedText: string): { email: string; verificationCode: string; expiresAt: number } | null {
   try {
     const parts = encryptedText.split(':');
@@ -41,14 +39,10 @@ export async function POST(request: Request) {
   try {
     const { email, verificationCode } = await request.json();
 
-    console.log('--- 認証コード検証API開始 ---');
-    console.log('受信したメールアドレス:', email);
-
     if (!email || !verificationCode) {
       return NextResponse.json({ error: 'メールアドレスと認証コードを入力してください。' }, { status: 400 });
     }
 
-    // 1. Cookieから暗号化された一時認証トークンを取得
     const cookieStore = await cookies();
     const tempAuthCookie = cookieStore.get('nexus_temp_auth');
 
@@ -56,28 +50,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '認証コードの有効期限が切れているか、存在しません。もう一度コードを送信してください。' }, { status: 400 });
     }
 
-    // 2. トークンを復号して中身を確認
     const tokenData = decryptData(tempAuthCookie.value);
     if (!tokenData) {
       return NextResponse.json({ error: '認証情報が無効です。もう一度コードを送信してください。' }, { status: 400 });
     }
 
-    // 3. メールアドレスの一致チェック
     if (tokenData.email !== email) {
       return NextResponse.json({ error: 'メールアドレスが一致しません。' }, { status: 400 });
     }
 
-    // 4. 有効期限（10分）のチェック
     if (Date.now() > tokenData.expiresAt) {
       return NextResponse.json({ error: '認証コードの有効期限（10分）が切れています。もう一度送信し直してください。' }, { status: 400 });
     }
 
-    // 5. コードの一致チェック
-    if (tokenData.verificationCode !== verificationCode.trim()) {
+    // タイミング攻撃を軽減するため timingSafeEqual を利用した安全なコード比較
+    const inputCode = String(verificationCode).trim();
+    const storedCode = String(tokenData.verificationCode).trim();
+    
+    let isCodeValid = false;
+    if (inputCode.length === storedCode.length) {
+      isCodeValid = crypto.timingSafeEqual(Buffer.from(inputCode), Buffer.from(storedCode));
+    }
+
+    if (!isCodeValid) {
       return NextResponse.json({ error: '認証コードが間違っています。' }, { status: 400 });
     }
 
-    // 6. データベースからログイン用email（doc.email）のみで厳格に検索
     const scanResult = await docClient.send(new ScanCommand({
       TableName: TABLE_NAME,
     }));
@@ -89,28 +87,26 @@ export async function POST(request: Request) {
       return dbEmail === inputEmail;
     });
 
-    // ★重要: データベースに登録されていない企業の場合は、ここで確実に拒否する
     if (!companyRecord) {
       return NextResponse.json({ error: 'このメールアドレスで登録された企業データは存在しません。' }, { status: 401 });
     }
 
     const companyId = companyRecord.id;
 
-    // 7. 使用済みの一時認証用Cookieを削除（セキュリティ対策）
+    // 使用済みの一時Cookieを即座に破棄
     cookieStore.delete('nexus_temp_auth');
 
-    // 8. ログイン成功のセキュアな HttpOnly Cookie を発行
+    // 本番環境ではセキュア属性（HTTPS必須、HttpOnly、SameSite=Lax）を完全に有効化
     cookieStore.set({
       name: 'nexus_company_id',
       value: companyId,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // 本番のHTTPS通信を強制
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24, // 1日間有効
     });
 
-    console.log('認証成功・Cookie発行完了:', companyId);
     return NextResponse.json({ 
       success: true, 
       companyId, 
@@ -119,6 +115,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Verify Code Error:', error);
-    return NextResponse.json({ error: error.message || '認証処理に失敗しました。' }, { status: 500 });
+    return NextResponse.json({ error: '認証処理に失敗しました。' }, { status: 500 });
   }
 }

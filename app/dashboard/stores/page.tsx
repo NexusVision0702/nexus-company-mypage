@@ -16,6 +16,7 @@ interface ExtendedStoreLocation extends StoreLocation {
   addressLine?: string;
   managerName?: string;
   phone?: string;
+  contactEmail?: string; // 👈 【新規追加】店舗ごとの連絡先メールアドレス
   employeeRegular?: string;
   employeePart?: string;
   businessDays?: string[];
@@ -84,6 +85,7 @@ export default function StoresPage() {
                 addressSub: st.addressLine || st.addressSub || st.address || '',
                 managerName: st.managerName || '',
                 phone: st.phone || '',
+                contactEmail: st.contactEmail || st.email || '', // 👈 DBから取得
                 employeeRegular: st.employeeRegular !== undefined ? String(st.employeeRegular) : '',
                 employeePart: st.employeePart !== undefined ? String(st.employeePart) : '',
                 businessDays: Array.isArray(st.businessDays) ? st.businessDays : [],
@@ -192,6 +194,7 @@ export default function StoresPage() {
       address: '', 
       managerName: '', 
       phone: '', 
+      contactEmail: '', // 👈 新規追加
       email: '', 
       newEmail: '', 
       employeeRegular: '',
@@ -257,7 +260,8 @@ export default function StoresPage() {
       const targetId = companyId || 'comp_1793455332362';
       const storesToSave = updated.map(st => ({
         ...st,
-        addressLine: st.addressSub || st.addressLine || ''
+        addressLine: st.addressSub || st.addressLine || '',
+        contactEmail: st.contactEmail || ''
       }));
       await fetch('/api/company', {
         method: 'PUT',
@@ -289,6 +293,7 @@ export default function StoresPage() {
         addressLine: st.addressSub || st.addressLine || '',
         managerName: st.managerName || '',
         phone: st.phone || '',
+        contactEmail: st.contactEmail || '', // 👈 保存処理に含める
         email: st.newEmail || st.email || '',
         employeeRegular: st.employeeRegular || '0',
         employeePart: st.employeePart || '0',
@@ -353,6 +358,7 @@ export default function StoresPage() {
         addressLine: st.addressSub || st.addressLine || '',
         managerName: st.managerName || '',
         phone: st.phone || '',
+        contactEmail: st.contactEmail || '',
         email: st.newEmail || st.email || '',
         employeeRegular: st.employeeRegular || '0',
         employeePart: st.employeePart || '0',
@@ -429,7 +435,6 @@ export default function StoresPage() {
   return (
     <div style={{ minHeight: '90vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '60px 40px', boxSizing: 'border-box', position: 'relative' }}>
       
-      {/* 🌟 すっきりシンプルで見やすい緑基調の中央上トースト通知 */}
       {toastMessage && (
         <div style={{
           position: 'fixed',
@@ -637,6 +642,12 @@ export default function StoresPage() {
                           <div style={{ fontSize: '11.5px', color: '#166534', fontWeight: 'bold', marginBottom: '4px' }}>電話番号</div>
                           <input type="text" value={store.phone || ''} onChange={e => handleStoreChange(sIdx, 'phone', e.target.value)} placeholder="例: 店舗電話番号または代表電話番号" disabled={!isStoreActiveEdit} style={getFieldStyle(isStoreActiveEdit)} />
                         </div>
+                      </div>
+
+                      {/* 👇 【新規追加】ご希望の赤線位置（責任者名・電話番号の下）に配置した連絡先メールアドレス入力欄 */}
+                      <div>
+                        <div style={{ fontSize: '11.5px', color: '#166534', fontWeight: 'bold', marginBottom: '4px' }}>連絡先メールアドレス</div>
+                        <input type="email" value={store.contactEmail || ''} onChange={e => handleStoreChange(sIdx, 'contactEmail', e.target.value)} placeholder="例: info@example.com" disabled={!isStoreActiveEdit} style={getFieldStyle(isStoreActiveEdit)} />
                       </div>
 
                       {/* 従業員数（正社員 / パート・アルバイト） */}
