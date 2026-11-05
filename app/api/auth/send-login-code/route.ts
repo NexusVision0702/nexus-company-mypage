@@ -14,14 +14,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'メールアドレスとパスワードを入力してください。' }, { status: 400 });
     }
 
-    // 環境変数の前後の空白（トリム処理）を行い、読み込みミスを完全に防止
-    const accessKeyId = (process.env.MY_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '').trim();
-    const secretAccessKey = (process.env.MY_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || '').trim();
-    const region = (process.env.MY_AWS_REGION || process.env.AWS_REGION || 'ap-northeast-1').trim();
-    const TABLE_NAME = (process.env.MY_DYNAMODB_COMPANY_TABLE || process.env.DYNAMODB_COMPANY_TABLE || 'nexus-job-board').trim();
+    // ユーザー様が登録されている「MY_」付きの環境変数を直接かつ確実に取得してトリム
+    const accessKeyId = (process.env.MY_AWS_ACCESS_KEY_ID || '').trim();
+    const secretAccessKey = (process.env.MY_AWS_SECRET_ACCESS_KEY || '').trim();
+    const region = (process.env.MY_AWS_REGION || 'ap-northeast-1').trim();
+    const TABLE_NAME = (process.env.MY_DYNAMODB_COMPANY_TABLE || 'nexus-job-board').trim();
 
+    // デバッグ用（もしキーが空ならログに出す）
     if (!accessKeyId || !secretAccessKey) {
-      return NextResponse.json({ error: '【設定エラー】AWSのアクセスキーが読み込めません。' }, { status: 500 });
+      console.error('❌ MY_AWS environment variables are missing:', {
+        hasKeyId: !!accessKeyId,
+        hasSecret: !!secretAccessKey
+      });
+      return NextResponse.json({ error: '【設定エラー】MY_AWS_ACCESS_KEY_ID または MY_AWS_SECRET_ACCESS_KEY が読み込めません。' }, { status: 500 });
     }
 
     const client = new DynamoDBClient({ region, credentials: { accessKeyId, secretAccessKey } });
@@ -86,7 +91,7 @@ export async function POST(request: Request) {
       maxAge: 60 * 10,
     });
 
-    // Resend APIを使った二段階認証メールの送信処理を復元
+    // Resend メール送信処理
     const apiKey = (process.env.RESEND_API_KEY || '').trim();
     if (apiKey) {
       try {
