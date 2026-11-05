@@ -14,19 +14,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'メールアドレスとパスワードを入力してください。' }, { status: 400 });
     }
 
-    // ユーザー様が登録されている「MY_」付きの環境変数を直接かつ確実に取得してトリム
-    const accessKeyId = (process.env.MY_AWS_ACCESS_KEY_ID || '').trim();
-    const secretAccessKey = (process.env.MY_AWS_SECRET_ACCESS_KEY || '').trim();
-    const region = (process.env.MY_AWS_REGION || 'ap-northeast-1').trim();
-    const TABLE_NAME = (process.env.MY_DYNAMODB_COMPANY_TABLE || 'nexus-job-board').trim();
+    // ★ MY_付きに加え、万が一の標準名も許容して、リクエスト実行時に毎回確実にトリムして取得
+    const accessKeyId = (process.env.MY_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '').trim();
+    const secretAccessKey = (process.env.MY_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || '').trim();
+    const region = (process.env.MY_AWS_REGION || process.env.AWS_REGION || 'ap-northeast-1').trim();
+    const TABLE_NAME = (process.env.MY_DYNAMODB_COMPANY_TABLE || process.env.DYNAMODB_COMPANY_TABLE || 'nexus-job-board').trim();
 
-    // デバッグ用（もしキーが空ならログに出す）
     if (!accessKeyId || !secretAccessKey) {
-      console.error('❌ MY_AWS environment variables are missing:', {
-        hasKeyId: !!accessKeyId,
-        hasSecret: !!secretAccessKey
+      console.error('🔥 AWS Credentials Missing in Production:', {
+        hasMyKey: !!process.env.MY_AWS_ACCESS_KEY_ID,
+        hasStandardKey: !!process.env.AWS_ACCESS_KEY_ID,
       });
-      return NextResponse.json({ error: '【設定エラー】MY_AWS_ACCESS_KEY_ID または MY_AWS_SECRET_ACCESS_KEY が読み込めません。' }, { status: 500 });
+      return NextResponse.json({ error: '【設定エラー】MY_AWS_ACCESS_KEY_ID または MY_AWS_SECRET_ACCESS_KEY が読み込めません。VercelのEnvironment Variablesで「Production」にチェックが入っているかご確認ください。' }, { status: 500 });
     }
 
     const client = new DynamoDBClient({ region, credentials: { accessKeyId, secretAccessKey } });
@@ -118,7 +117,7 @@ ${verificationCode}
 --------------------------------------------------
 
 ※この認証コードの有効期限は発行から【10分間】となります。
-※心当たりがない場合は、お手数ですが本メールを破棄してください。
+※心当たりがない場合は、お手数ですが本番メールを破棄してください。
 
 --------------------------------------------------
 ネクビジョ求人 運営事務局
