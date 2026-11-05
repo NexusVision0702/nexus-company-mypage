@@ -1,7 +1,14 @@
-// app/api/company/send-email-code/route.ts
 import { NextResponse } from 'next/server';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+
+const accessKeyId = process.env.MY_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '';
+const secretAccessKey = process.env.MY_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || '';
+const region = process.env.MY_AWS_REGION || process.env.AWS_REGION || 'ap-northeast-1';
+const TABLE_NAME = process.env.MY_DYNAMODB_COMPANY_TABLE || process.env.DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
 
 const ENCRYPTION_SECRET = crypto.createHash('sha256').update(process.env.NEXTAUTH_SECRET || process.env.RESEND_API_KEY || 'nexus-vision-secure-secret-key').digest();
 const ALGORITHM = 'aes-256-gcm';
@@ -15,18 +22,69 @@ function encryptData(text: string): string {
   return `${iv.toString('hex')}:${tag}:${encrypted}`;
 }
 
+const client = new DynamoDBClient({
+  region,
+  credentials: { accessKeyId, secretAccessKey },
+});
+const docClient = DynamoDBDocumentClient.from(client);
+
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json();
+    const { email, password } = await request.json();
 
-    if (!email) {
-      return NextResponse.json({ error: 'メールアドレスを入力してください。' }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json({ error: 'メールアドレスとパスワードを入力してください。' }, { status: 400 });
+    }
+
+    const inputEmail = String(email).toLowerCase().trim();
+
+    // DynamoDBからデータを取得
+    const scanResult = await docClient.send(new ScanCommand({
+      TableName: TABLE_NAME,
+    }));
+
+    const items = scanResult.Items || [];
+
+    // どのメールフィールド（email, businessEmail, accountingEmail）に格納されていても安全に完全一致で抽出
+    const foundCompany = items.find((doc) => {
+      if (!doc.id || doc.id.startsWith('code_')) return false;
+      const dbEmail = doc.email ? String(doc.email).toLowerCase().trim() : '';
+      const dbBusinessEmail = doc.businessEmail ? String(doc.businessEmail).toLowerCase().trim() : '';
+      const dbAccountingEmail = doc.accountingEmail ? String(doc.accountingEmail).toLowerCase().trim() : '';
+      
+      return dbEmail === inputEmail || dbBusinessEmail === inputEmail || dbAccountingEmail === inputEmail;
+    });
+
+    // セキュリティ考慮：存在有無を特定されないよう、メッセージは統一
+    if (!foundCompany) {
+      return NextResponse.json({ error: 'ご入力いただいたIDまたはパスワードが正しくありません。' }, { status: 401 });
+    }
+
+    const lockUntil = foundCompany.lockUntil || 0;
+    if (Date.now() < lockUntil) {
+      const remainingMinutes = Math.ceil((lockUntil - Date.now()) / (60 * 1000));
+      return NextResponse.json({ 
+        error: `セキュリティ保護のため、アカウントが一時ロックされています。約 ${remainingMinutes} 分後にお試しください。` 
+      }, { status: 429 });
+    }
+
+    const storedPassword = foundCompany.password || foundCompany.companyPassword || '';
+    
+    let isPasswordValid = false;
+    if (storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2y$')) {
+      isPasswordValid = await bcrypt.compare(password, storedPassword);
+    } else {
+      isPasswordValid = (storedPassword === password);
+    }
+
+    if (!isPasswordValid) {
+      return NextResponse.json({ error: 'ご入力いただいたIDまたはパスワードが正しくありません。' }, { status: 401 });
     }
 
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000;
 
-    const tokenData = JSON.stringify({ email, verificationCode, expiresAt });
+    const tokenData = JSON.stringify({ email: foundCompany.email || email, verificationCode, expiresAt });
     const encryptedToken = encryptData(tokenData);
 
     const cookieStore = await cookies();
@@ -40,10 +98,7 @@ export async function POST(request: Request) {
       maxAge: 60 * 10,
     });
 
-    // 開発・本番共通の安全なロギング
-    console.log(`✨ 認証コード発行: 宛先 ${email} / コード ${verificationCode}`);
-
-    // 本番環境のResend APIによるメール送信処理
+    // メール送信（非同期または高速化対応）
     const apiKey = process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.trim() : '';
     if (apiKey) {
       fetch('https://api.resend.com/emails', {
@@ -55,23 +110,21 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           from: 'ネクビジョ求人 運営事務局 <support@nexus-vision.net>',
           to: [email],
-          subject: '【ネクビジョ求人】メールアドレス変更に関する二段階認証コードのご案内',
+          subject: '【ネクビジョ求人】企業マイページ ログイン認証コードのお知らせ',
           text: `
-平素は「ネクビジョ求人」をご利用いただき、誠にありがとうございます。
+いつも「ネクビジョ求人」をご利用いただき、誠にありがとうございます。
 ネクビジョ求人 運営事務局でございます。
 
-この度、企業マイページのログインメールアドレス変更に関するリクエストを承りました。
-手続きを安全に完了させるため、以下の二段階認証コードを画面に入力してください。
+企業マイページへのログインリクエストを受け付けいたしました。
+以下の二段階認証コードをログイン画面に入力し、手続きを完了させてください。
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-■ 二段階認証コード
+--------------------------------------------------
+【二段階認証コード】
 ${verificationCode}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+--------------------------------------------------
 
-【重要なお願い・ご注意】
-・本コードの有効期限は、発行から【10分間】となります。
-・期限が切れた場合は、お手数ですが再度マイページより認証コードの再発行をお願い申し上げます。
-・本メールに身覚えがない場合や、心当たりがない場合は、第三者による不正アクセスの可能性がございますので、お手数ですが速やかに本メールを破棄し、運営事務局までご連絡ください。
+※この認証コードの有効期限は発行から【10分間】となります。
+※心当たりがない場合は、お手数ですが本メールを破棄してください。
 
 --------------------------------------------------
 ネクビジョ求人 運営事務局
@@ -80,13 +133,13 @@ ${verificationCode}
 --------------------------------------------------
           `.trim(),
         }),
-      }).catch(err => console.error('Background Email Send Error:', err));
+      }).catch(err => console.error('Background Email Error:', err));
     }
 
     return NextResponse.json({ success: true, message: '認証コードを送信しました。' });
 
   } catch (error: any) {
-    console.error('Send Email Code Error:', error);
-    return NextResponse.json({ error: 'コードの送信処理に失敗しました。' }, { status: 500 });
+    console.error('Login API Error:', error);
+    return NextResponse.json({ error: 'ログイン処理に失敗しました。' }, { status: 500 });
   }
 }
