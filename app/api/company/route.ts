@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { cookies } from 'next/headers';
+import bcrypt from 'bcryptjs';
 
 const client = new DynamoDBClient({
   region: process.env.MY_AWS_REGION || 'ap-northeast-1',
@@ -54,7 +55,17 @@ export async function PUT(request: Request) {
 
     const companyId = body.companyId || cookieCompanyId || 'comp_1793266043558';
 
-    // 許容する更新対象のキー一覧
+    // パスワードが含まれている場合は事前にハッシュ化する
+    if (body.password) {
+      // 6文字以上のバリデーション
+      if (typeof body.password !== 'string' || body.password.length < 6) {
+        return NextResponse.json({ error: 'パスワードは6文字以上で入力してください。' }, { status: 400 });
+      }
+      const salt = await bcrypt.genSalt(10);
+      body.password = await bcrypt.hash(body.password, salt);
+    }
+
+    // 許容する更新対象のキー一覧に 'password' を追加
     const allowedKeys = [
       'companyName', 'corporateNumber', 'corporateType', 'invoiceNumber',
       'representativeName', 'licenseNumber', 'capital', 'establishYear',
@@ -62,7 +73,7 @@ export async function PUT(request: Request) {
       'employeePart', 'contactName', 'accountingContactName', 'phone',
       'contactEmail', 'email', 'accountingEmail', 'homepageUrl', 'branchType',
       'postalCode', 'prefecture', 'city', 'addressSub', 'businessPhone',
-      'businessEmail', 'businessDescription', 'newsletter', 'stores'
+      'businessEmail', 'businessDescription', 'newsletter', 'stores', 'password'
     ];
 
     const updateExpressions: string[] = [];
@@ -72,18 +83,21 @@ export async function PUT(request: Request) {
     // リクエストボディに含まれていた項目だけを動的にUpdateExpressionに追加
     for (const key of allowedKeys) {
       if (body[key] !== undefined) {
-        // DynamoDBの予約語（emailなど）対策
-        const attrNameKey = key === 'email' ? '#em' : `#${key}`;
-        const attrValKey = `:${key}`;
+        // DynamoDBの予約語（email, passwordなど）対策
+        let attrNameKey = `#${key}`;
+        if (key === 'email') attrNameKey = '#em';
+        if (key === 'password') attrNameKey = '#pw';
 
         if (key === 'email') {
           expressionAttributeNames['#em'] = 'email';
+        } else if (key === 'password') {
+          expressionAttributeNames['#pw'] = 'password';
         } else {
           expressionAttributeNames[`#${key}`] = key;
         }
 
-        updateExpressions.push(`${attrNameKey} = ${attrValKey}`);
-        expressionAttributeValues[attrValKey] = body[key];
+        updateExpressions.push(`${attrNameKey} = :${key}`);
+        expressionAttributeValues[`:${key}`] = body[key];
       }
     }
 

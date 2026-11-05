@@ -32,8 +32,8 @@ export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'メールアドレスとパスワードを入力してください。' }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: 'メールアドレスを入力してください。' }, { status: 400 });
     }
 
     const inputEmail = String(email).toLowerCase().trim();
@@ -45,7 +45,6 @@ export async function POST(request: Request) {
 
     const items = scanResult.Items || [];
 
-    // どのメールフィールド（email, businessEmail, accountingEmail）に格納されていても安全に完全一致で抽出
     const foundCompany = items.find((doc) => {
       if (!doc.id || doc.id.startsWith('code_')) return false;
       const dbEmail = doc.email ? String(doc.email).toLowerCase().trim() : '';
@@ -55,36 +54,39 @@ export async function POST(request: Request) {
       return dbEmail === inputEmail || dbBusinessEmail === inputEmail || dbAccountingEmail === inputEmail;
     });
 
-    // セキュリティ考慮：存在有無を特定されないよう、メッセージは統一
-    if (!foundCompany) {
-      return NextResponse.json({ error: 'ご入力いただいたIDまたはパスワードが正しくありません。' }, { status: 401 });
-    }
+    // パスワードが送信されている場合のみ（ログイン時など）、認証チェックを行う
+    if (password) {
+      if (!foundCompany) {
+        return NextResponse.json({ error: 'ご入力いただいたIDまたはパスワードが正しくありません。' }, { status: 401 });
+      }
 
-    const lockUntil = foundCompany.lockUntil || 0;
-    if (Date.now() < lockUntil) {
-      const remainingMinutes = Math.ceil((lockUntil - Date.now()) / (60 * 1000));
-      return NextResponse.json({ 
-        error: `セキュリティ保護のため、アカウントが一時ロックされています。約 ${remainingMinutes} 分後にお試しください。` 
-      }, { status: 429 });
-    }
+      const lockUntil = foundCompany.lockUntil || 0;
+      if (Date.now() < lockUntil) {
+        const remainingMinutes = Math.ceil((lockUntil - Date.now()) / (60 * 1000));
+        return NextResponse.json({ 
+          error: `セキュリティ保護のため、アカウントが一時ロックされています。約 ${remainingMinutes} 分後にお試しください。` 
+        }, { status: 429 });
+      }
 
-    const storedPassword = foundCompany.password || foundCompany.companyPassword || '';
-    
-    let isPasswordValid = false;
-    if (storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2y$')) {
-      isPasswordValid = await bcrypt.compare(password, storedPassword);
-    } else {
-      isPasswordValid = (storedPassword === password);
-    }
+      const storedPassword = foundCompany.password || foundCompany.companyPassword || '';
+      
+      let isPasswordValid = false;
+      if (storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2y$')) {
+        isPasswordValid = await bcrypt.compare(password, storedPassword);
+      } else {
+        isPasswordValid = (storedPassword === password);
+      }
 
-    if (!isPasswordValid) {
-      return NextResponse.json({ error: 'ご入力いただいたIDまたはパスワードが正しくありません。' }, { status: 401 });
+      if (!isPasswordValid) {
+        return NextResponse.json({ error: 'ご入力いただいたIDまたはパスワードが正しくありません。' }, { status: 401 });
+      }
     }
 
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000;
 
-    const tokenData = JSON.stringify({ email: foundCompany.email || email, verificationCode, expiresAt });
+    // ★ 修正：入力された新しいメールアドレスを確実にトークンに持たせる
+    const tokenData = JSON.stringify({ email: email, verificationCode, expiresAt });
     const encryptedToken = encryptData(tokenData);
 
     const cookieStore = await cookies();
@@ -98,7 +100,7 @@ export async function POST(request: Request) {
       maxAge: 60 * 10,
     });
 
-    // メール送信（非同期または高速化対応）
+    // メール送信（非同期）
     const apiKey = process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.trim() : '';
     if (apiKey) {
       fetch('https://api.resend.com/emails', {

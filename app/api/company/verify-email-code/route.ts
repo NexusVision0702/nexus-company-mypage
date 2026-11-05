@@ -49,12 +49,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '認証コードの有効期限（10分）が切れています。' }, { status: 400 });
     }
 
-    const storedEmail = String(tokenData.email).toLowerCase().trim();
-    const inputEmail = String(email).toLowerCase().trim();
     const storedCode = String(tokenData.verificationCode).trim();
     const inputCode = String(code).trim();
 
-    if (storedEmail !== inputEmail || storedCode !== inputCode) {
+    // 認証コードが一致しているか確認
+    if (storedCode !== inputCode) {
       return NextResponse.json({ error: '認証コードが正しくありません。' }, { status: 400 });
     }
 
