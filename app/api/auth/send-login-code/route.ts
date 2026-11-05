@@ -14,10 +14,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'メールアドレスとパスワードを入力してください。' }, { status: 400 });
     }
 
-    const accessKeyId = process.env.MY_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '';
-    const secretAccessKey = process.env.MY_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || '';
-    const region = process.env.MY_AWS_REGION || process.env.AWS_REGION || 'ap-northeast-1';
-    const TABLE_NAME = process.env.MY_DYNAMODB_COMPANY_TABLE || process.env.DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
+    // 環境変数の前後の空白（トリム処理）を行い、読み込みミスを完全に防止
+    const accessKeyId = (process.env.MY_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '').trim();
+    const secretAccessKey = (process.env.MY_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || '').trim();
+    const region = (process.env.MY_AWS_REGION || process.env.AWS_REGION || 'ap-northeast-1').trim();
+    const TABLE_NAME = (process.env.MY_DYNAMODB_COMPANY_TABLE || process.env.DYNAMODB_COMPANY_TABLE || 'nexus-job-board').trim();
 
     if (!accessKeyId || !secretAccessKey) {
       return NextResponse.json({ error: '【設定エラー】AWSのアクセスキーが読み込めません。' }, { status: 500 });
@@ -84,6 +85,48 @@ export async function POST(request: Request) {
       path: '/',
       maxAge: 60 * 10,
     });
+
+    // Resend APIを使った二段階認証メールの送信処理を復元
+    const apiKey = (process.env.RESEND_API_KEY || '').trim();
+    if (apiKey) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            from: 'ネクビジョ求人 運営事務局 <support@nexus-vision.net>',
+            to: [email],
+            subject: '【ネクビジョ求人】企業マイページ ログイン認証コードのお知らせ',
+            text: `
+いつも「ネクビジョ求人」をご利用いただき、誠にありがとうございます。
+ネクビジョ求人 運営事務局でございます。
+
+企業マイページへのログインリクエストを受け付けいたしました。
+以下の二段階認証コードをログイン画面に入力し、手続きを完了させてください。
+
+--------------------------------------------------
+【二段階認証コード】
+${verificationCode}
+--------------------------------------------------
+
+※この認証コードの有効期限は発行から【10分間】となります。
+※心当たりがない場合は、お手数ですが本メールを破棄してください。
+
+--------------------------------------------------
+ネクビジョ求人 運営事務局
+公式サイト: https://nexus-vision.net
+お問い合わせ: info@nexus-vision.net
+--------------------------------------------------
+            `.trim(),
+          }),
+        });
+      } catch (mailErr) {
+        console.error('Mail Send Error:', mailErr);
+      }
+    }
 
     return NextResponse.json({ success: true, message: '認証コードを送信しました。' });
 
