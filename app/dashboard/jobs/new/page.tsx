@@ -85,24 +85,76 @@ export default function NewJobPage() {
   const [loading, setLoading] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
-  // 本社・店舗情報の取得（AWS/ローカルストレージ対応）
+  // 本社・店舗情報の取得（AWS/ローカルストレージ対応と実際のDBデータ連携）
   useEffect(() => {
-    const id = localStorage.getItem('nexus_company_id');
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(';').shift();
+    };
+
+    const id = getCookie('nexus_company_id') || localStorage.getItem('nexus_company_id');
     if (!id) {
-      window.location.href = '/';
+      window.location.href = '/login';
       return;
     }
     setCompanyId(id);
 
-    const loadLocations = () => {
-      const defaultLocations = [
-        { id: 'hq', name: '本社', address: '宮城県仙台市宮城野区榴岡1-2-3', phone: '022-000-0000', employees: '50名', hours: '9:00 〜 18:00' }
-      ];
-      setAvailableLocations(defaultLocations);
-      setSelectedPostingLocation('本社');
+    const fetchCompanyAndLocations = async () => {
+      try {
+        const res = await fetch(`/api/company?companyId=${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.company) {
+            const comp = data.company;
+            setCompanyProfile(comp);
+
+            const branchLabel = comp.branchType || '本社';
+            const fullAddress = `${comp.prefecture || ''}${comp.city || ''}${comp.addressSub || ''}`;
+
+            const locations = [
+              {
+                id: 'hq',
+                name: branchLabel, // ここをプレーンな名称にする（子側での二重カッコを防ぐため）
+                address: fullAddress,
+                phone: comp.businessPhone || comp.phone || '未登録',
+                employees: comp.employeeRegular ? `${comp.employeeRegular}名` : '非公開',
+                hours: '9:00 〜 18:00'
+              }
+            ];
+
+            // 登録されている店舗（stores）のマッピング
+            if (Array.isArray(comp.stores)) {
+              comp.stores.forEach((store: any, idx: number) => {
+                const storeAddr = store.address || `${store.prefecture || ''}${store.city || ''}${store.addressSub || ''}`;
+                const baseStoreName = store.name || `${comp.companyName || '店舗'} ${idx + 1}`;
+
+                locations.push({
+                  id: `store_${idx}`,
+                  name: baseStoreName, // 店舗名のみにする
+                  address: storeAddr,
+                  phone: store.phone || comp.businessPhone || '未登録',
+                  employees: store.employees || '非公開',
+                  hours: store.hours || '9:00 〜 18:00'
+                });
+              });
+            }
+
+            setAvailableLocations(locations);
+            if (locations.length > 0) {
+              setSelectedPostingLocation(locations[0].name);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('拠点情報の取得に失敗しました:', err);
+        setAvailableLocations([
+          { id: 'hq', name: '本社', address: '住所未登録', phone: '未登録', employees: '非公開', hours: '9:00 〜 18:00' }
+        ]);
+      }
     };
 
-    loadLocations();
+    fetchCompanyAndLocations();
   }, []);
 
   const currentPostingLocationDetails = availableLocations.find(loc => loc.name === selectedPostingLocation) || availableLocations[0] || {

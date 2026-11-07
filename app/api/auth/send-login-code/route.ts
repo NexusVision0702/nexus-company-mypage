@@ -68,6 +68,9 @@ export async function POST(request: Request) {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000;
 
+    // ★ ローカルテスト用にターミナルへ二段階認証コードを出力
+    console.log("【ローカルテスト用】二段階認証コード:", verificationCode);
+
     const secretKeyStr = process.env.NEXTAUTH_SECRET || process.env.RESEND_API_KEY || 'fallback-secure-key';
     const ENCRYPTION_SECRET = crypto.createHash('sha256').update(secretKeyStr).digest();
     const iv = crypto.randomBytes(12);

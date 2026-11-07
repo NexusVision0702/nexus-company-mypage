@@ -59,6 +59,24 @@ const industryOptions = [
   'ホテル・フロントスタッフ', '旅行代理店・ツアープランナー'
 ];
 
+// 電話番号の自動ハイフン整形関数
+function formatPhoneNumber(value: string): string {
+  const numbers = value.replace(/\D/g, '');
+  if (numbers.length <= 3) {
+    return numbers;
+  } else if (numbers.length <= 7) {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+  } else if (numbers.length <= 11) {
+    if (numbers.startsWith('0') && numbers.length === 10) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+    } else {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+    }
+  } else {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+  }
+}
+
 export default function CompanyOverviewPage() {
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -186,7 +204,7 @@ export default function CompanyOverviewPage() {
               industry: parsedIndustry,
               contactName: comp.contactName || '',
               accountingContactName: comp.accountingContactName || comp.accountingName || '',
-              phone: comp.phone || '',
+              phone: formatPhoneNumber(comp.phone || ''),
               accountingEmail: comp.accountingEmail || comp.email || '',
               newAccountingEmail: comp.accountingEmail || comp.email || '',
               homepageUrl: comp.homepageUrl || '',
@@ -195,8 +213,8 @@ export default function CompanyOverviewPage() {
               prefecture: comp.prefecture || '',
               city: comp.city || '',
               addressSub: comp.addressSub || '',
-              businessPhone: comp.businessPhone || comp.phone || '',
-              businessEmail: comp.businessEmail || comp.email || '',
+              businessPhone: formatPhoneNumber(comp.businessPhone || comp.phone || ''),
+              businessEmail: userEmail,
               businessDescription: comp.businessDescription || '',
               newsletter: comp.newsletter ?? false
             });
@@ -229,11 +247,20 @@ export default function CompanyOverviewPage() {
       const rawNum = value.replace(/[^0-9]/g, '');
       value = rawNum ? Number(rawNum).toLocaleString() : '';
     }
+    // 電話番号フィールドの自動ハイフン適用
+    if (name === 'phone' || name === 'businessPhone') {
+      value = formatPhoneNumber(value);
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleAuthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAuthData({ ...authData, [e.target.name]: e.target.value });
+    const newEmail = e.target.value;
+    setAuthData(prev => ({ ...prev, [e.target.name]: newEmail }));
+    if (e.target.name === 'email') {
+      setFormData(prev => ({ ...prev, businessEmail: newEmail }));
+    }
   };
 
   const handleCheckboxChange = (option: string) => {
@@ -310,12 +337,13 @@ export default function CompanyOverviewPage() {
       const updateRes = await fetch('/api/company', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, email: authData.email }),
+        body: JSON.stringify({ companyId, email: authData.email, businessEmail: authData.email }),
       });
 
       if (updateRes.ok) {
         showToast('メールアドレスを正常に更新しました！');
         setAuthData(prev => ({ ...prev, originalEmail: authData.email }));
+        setFormData(prev => ({ ...prev, businessEmail: authData.email }));
         setEditEmail(false);
         setEmailStep('idle');
         setVerificationCodeInput('');
@@ -386,17 +414,21 @@ export default function CompanyOverviewPage() {
         return;
       }
 
+      const payload = sectionName === '事業詳細'
+        ? { companyId, ...formData, businessEmail: authData.email }
+        : { companyId, ...formData };
+
       const res = await fetch('/api/company', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, ...formData }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         showToast(`${sectionName}を更新しました！`);
         if (sectionName === '基本情報') setEditBasic(false);
         if (sectionName === '連絡先情報') setEditContact(false);
-        if (sectionName === '事業・詳細情報') setEditBusiness(false);
+        if (sectionName === '事業詳細') setEditBusiness(false);
       } else {
         const errData = await res.json();
         showToast(`保存に失敗しました: ${errData.error || '不明なエラー'}`, 'error');
@@ -620,25 +652,25 @@ export default function CompanyOverviewPage() {
               <input type="text" name="accountingContactName" value={formData.accountingContactName} onChange={handleChange} disabled={!editContact} style={getInputStyle(editContact)} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>連絡先電話番号</label>
-              <input type="text" name="phone" value={formData.phone} onChange={handleChange} disabled={!editContact} style={getInputStyle(editContact)} />
+              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>連絡先電話番号（経理担当者）</label>
+              <input type="text" name="phone" value={formData.phone} onChange={handleChange} disabled={!editContact} placeholder="080-0000-0000" maxLength={13} style={getInputStyle(editContact)} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>請求書送付用メールアドレス</label>
+              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>請求書送付用メールアドレス（経理担当者）</label>
               <input type="email" name="accountingEmail" value={formData.accountingEmail} onChange={handleChange} disabled={!editContact} style={getInputStyle(editContact)} />
             </div>
           </div>
         </div>
 
-        {/* 事業・所在地詳細セクション */}
+        {/* 事業詳細セクション */}
         <div style={{ background: '#ffffff', borderRadius: '16px', border: editBusiness ? '2px solid #166534' : '1px solid #e2e8f0', overflow: 'hidden' }}>
           <div style={{ padding: '24px 32px', background: editBusiness ? '#f0fdf4' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: 0 }}>事業・所在地詳細</h3>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: 0 }}>事業詳細</h3>
             {!editBusiness ? (
               <button onClick={() => setEditBusiness(true)} style={{ background: '#166534', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>編集する</button>
             ) : (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => handleSaveSection('事業・詳細情報')} style={{ background: '#166534', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>変更を保存</button>
+                <button onClick={() => handleSaveSection('事業詳細')} style={{ background: '#166534', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>変更を保存</button>
                 <button onClick={() => setEditBusiness(false)} style={{ background: '#cbd5e1', color: '#1e293b', border: 'none', padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>キャンセル</button>
               </div>
             )}
@@ -651,11 +683,11 @@ export default function CompanyOverviewPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>電話番号 (必須)</label>
-                <input type="text" name="businessPhone" value={formData.businessPhone} onChange={handleChange} disabled={!editBusiness} style={getInputStyle(editBusiness)} />
+                <input type="text" name="businessPhone" value={formData.businessPhone} onChange={handleChange} disabled={!editBusiness} placeholder="03-0000-0000" maxLength={13} style={getInputStyle(editBusiness)} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>メールアドレス (必須)</label>
-                <input type="email" name="businessEmail" value={formData.businessEmail} onChange={handleChange} disabled={!editBusiness} style={getInputStyle(editBusiness)} />
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>メールアドレス（変更不可）IDと共通</label>
+                <input type="email" name="businessEmail" value={authData.email} disabled={true} style={{ ...getInputStyle(false), background: '#e2e8f0', color: '#475569', cursor: 'not-allowed' }} />
               </div>
             </div>
             <div>
