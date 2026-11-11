@@ -3,6 +3,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken'; // ★ 1. JWTライブラリをインポート
 
 const accessKeyId = process.env.MY_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '';
 const secretAccessKey = process.env.MY_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || '';
@@ -10,6 +12,7 @@ const region = process.env.MY_AWS_REGION || process.env.AWS_REGION || 'ap-northe
 const TABLE_NAME = process.env.MY_DYNAMODB_COMPANY_TABLE || process.env.DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
 
 const ENCRYPTION_SECRET = crypto.createHash('sha256').update(process.env.NEXTAUTH_SECRET || process.env.RESEND_API_KEY || 'nexus-vision-secure-secret-key').digest();
+const JWT_SECRET = process.env.JWT_SECRET || 'nexus-secret-key-secure'; // ★ 2. JWT用の秘密鍵
 const ALGORITHM = 'aes-256-gcm';
 
 function decryptData(encryptedText: string): { email: string; verificationCode: string; expiresAt: number } | null {
@@ -96,15 +99,29 @@ export async function POST(request: Request) {
     // 使用済みの一時Cookieを即座に破棄
     cookieStore.delete('nexus_temp_auth');
 
-    // 本番環境ではセキュア属性（HTTPS必須、HttpOnly、SameSite=Lax）を完全に有効化
+    // ★ 3. 24時間有効なJWTを生成
+    const jwtToken = jwt.sign({ email: inputEmail, companyId }, JWT_SECRET, { expiresIn: '24h' });
+
+    // ★ 4. 24時間有効なセキュアJWTトークンCookieをセット
+    cookieStore.set({
+      name: 'nexus_token',
+      value: jwtToken,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24時間有効
+    });
+
+    // 従来の nexus_company_id も互換性のため同時に保持
     cookieStore.set({
       name: 'nexus_company_id',
       value: companyId,
       httpOnly: true,
-      secure: true, // 本番のHTTPS通信を強制
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24, // 1日間有効
+      maxAge: 60 * 60 * 24,
     });
 
     return NextResponse.json({ 

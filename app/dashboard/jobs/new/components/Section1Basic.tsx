@@ -1,4 +1,4 @@
-// app/jobs/new/components/Section1Basic.tsx (Fixed safe array check)
+// app/dashboard/jobs/new/components/Section1Basic.tsx
 'use client';
 
 import React from 'react';
@@ -122,6 +122,7 @@ interface Section1Props {
   headcount: string;
   setHeadcount: (val: string) => void;
   inputStyle: React.CSSProperties;
+  hasSubmitted?: boolean; // ★ 追加
 }
 
 export default function Section1Basic({
@@ -133,30 +134,45 @@ export default function Section1Basic({
   setEmploymentType,
   headcount,
   setHeadcount,
-  inputStyle
+  inputStyle,
+  hasSubmitted = false // ★ 追加
 }: Section1Props) {
+  // 未チェック状態かつ送信トライ時にエラー判定
+  const isJobCategoryError = hasSubmitted && selectedJobCategories.length === 0;
+  const isTitleError = hasSubmitted && !title.trim();
+  const isEmploymentTypeError = hasSubmitted && !employmentType.trim();
+  const isHeadcountError = hasSubmitted && !headcount.trim();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#065f46', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px', margin: 0 }}>1. 基本情報・募集背景</h3>
+      <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#065f46', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px', margin: 0 }}>
+        基本情報・募集背景
+      </h3>
       
       {/* 職種選択（複数選択可・最大2件まで） */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>業種・職種（複数選択可：現在 {selectedJobCategories.length}件選択中）*</label>
+          <label style={{ fontSize: '13px', fontWeight: '700', color: isJobCategoryError ? '#ef4444' : '#0f172a' }}>
+            業種・職種（複数選択可：現在 {selectedJobCategories.length}件選択中）*
+            {isJobCategoryError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※1つ以上選択してください</span>}
+          </label>
           <span style={{ fontSize: '11.5px', color: '#64748b' }}>※最大2つまで選択できます</span>
         </div>
 
-        <div style={{ 
-          background: '#f8fafc', 
-          border: '1px solid #cbd5e1', 
-          borderRadius: '12px', 
-          padding: '16px', 
-          maxHeight: '220px', 
-          overflowY: 'auto', 
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr', 
-          gap: '12px' 
-        }}>
+        <div 
+          className={isJobCategoryError ? 'input-error' : ''}
+          style={{ 
+            background: '#f8fafc', 
+            border: '1px solid #cbd5e1', 
+            borderRadius: '12px', 
+            padding: '16px', 
+            maxHeight: '220px', 
+            overflowY: 'auto', 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '12px' 
+          }}
+        >
           {jobCategoriesList.map((cat) => {
             const isChecked = selectedJobCategories.includes(cat);
             return (
@@ -186,21 +202,33 @@ export default function Section1Basic({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>求人タイトル / ポジション名 * <span style={{ fontSize: '11px', color: '#64748b' }}>（5文字以上・具体的に）</span></label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: isTitleError ? '#ef4444' : '#0f172a' }}>
+          求人タイトル / ポジション名 * <span style={{ fontSize: '11px', color: '#64748b' }}>（5文字以上・具体的に）</span>
+          {isTitleError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※入力必須です</span>}
+        </label>
         <input 
           type="text" 
           placeholder="例: 【幹部候補】事業拡大を牽引するコアメンバー（裁量権大・急成長フェーズ）" 
           value={title} 
           onChange={e => setTitle(e.target.value)} 
           required 
+          className={isTitleError ? 'input-error' : ''}
           style={inputStyle} 
         />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>雇用形態 *</label>
-          <select value={employmentType} onChange={e => setEmploymentType(e.target.value)} style={inputStyle}>
+          <label style={{ fontSize: '13px', fontWeight: '700', color: isEmploymentTypeError ? '#ef4444' : '#0f172a' }}>
+            雇用形態 *
+            {isEmploymentTypeError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※選択必須です</span>}
+          </label>
+          <select 
+            value={employmentType} 
+            onChange={e => setEmploymentType(e.target.value)} 
+            className={isEmploymentTypeError ? 'input-error' : ''}
+            style={inputStyle}
+          >
             <option value="正社員">正社員</option>
             <option value="契約社員">契約社員</option>
             <option value="業務委託">業務委託</option>
@@ -208,8 +236,17 @@ export default function Section1Basic({
           </select>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>採用人数</label>
-          <select value={headcount} onChange={e => setHeadcount(e.target.value)} style={inputStyle}>
+          <label style={{ fontSize: '13px', fontWeight: '700', color: isHeadcountError ? '#ef4444' : '#0f172a' }}>
+            採用人数 *
+            {isHeadcountError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※選択必須です</span>}
+          </label>
+          <select 
+            value={headcount} 
+            onChange={e => setHeadcount(e.target.value)} 
+            className={isHeadcountError ? 'input-error' : ''}
+            style={inputStyle}
+          >
+            <option value="">選択してください</option>
             <option value="1名（厳選採用）">1名（厳選採用）</option>
             <option value="若干名（コアメンバーの採用）">若干名（コアメンバーの採用）</option>
             <option value="3名〜5名（積極採用中）">3名〜5名（積極採用中）</option>

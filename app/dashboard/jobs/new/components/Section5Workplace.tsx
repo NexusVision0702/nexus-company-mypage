@@ -1,4 +1,4 @@
-// app/jobs/new/components/Section5Workplace.tsx
+// app/dashboard/jobs/new/components/Section5Workplace.tsx
 'use client';
 
 import React from 'react';
@@ -63,6 +63,7 @@ interface Section5Props {
   centerNumberInputStyle: React.CSSProperties;
   disabledCenterNumberInputStyle: React.CSSProperties;
   stationInputStyle: React.CSSProperties;
+  hasSubmitted?: boolean; // ★ 追加
 }
 
 export default function Section5Workplace({
@@ -116,11 +117,22 @@ export default function Section5Workplace({
   disabledInputStyle,
   centerNumberInputStyle,
   disabledCenterNumberInputStyle,
-  stationInputStyle
+  stationInputStyle,
+  hasSubmitted = false // ★ 追加
 }: Section5Props) {
+  // 未入力チェックの判定
+  const isZipcodeError = hasSubmitted && !zipcode.trim();
+  const isPrefAndCityError = hasSubmitted && !prefAndCity.trim();
+  const isStreetNumberError = hasSubmitted && !streetNumber.trim();
+  const isMobileAreaError = hasSubmitted && locationMode === '変動勤務地' && !mobileArea.trim();
+  const isAccessStationError = hasSubmitted && !accessStation.trim();
+  const isAccessMinutesError = hasSubmitted && !accessMinutes.trim();
+  const isHolidayDetailError = hasSubmitted && !holidayDetail.trim();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#065f46', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px', margin: 0 }}>5. 勤務地・勤務時間・職場環境</h3>
+      
       {/* 勤務地形態の選択 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -134,6 +146,7 @@ export default function Section5Workplace({
             <option value="変動勤務地">変動勤務地</option>
           </select>
         </div>
+
         {/* メイン拠点の住所入力 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
           <span style={{ fontSize: '12px', fontWeight: '700', color: '#065f46' }}>メイン拠点の住所 *</span>
@@ -144,30 +157,34 @@ export default function Section5Workplace({
               value={zipcode} 
               onChange={e => handleZipChange(e.target.value)} 
               maxLength={8}
+              className={isZipcodeError ? 'input-error' : ''}
               style={{ ...inputStyle, maxWidth: '280px' }} 
             />
             <span style={{ fontSize: '12px', color: '#64748b' }}>※7桁入力すると下の都道府県・市区町村が自動で反映されます</span>
           </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginTop: '4px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>都道府県・市区町村</span>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: isPrefAndCityError ? '#ef4444' : '#64748b' }}>都道府県・市区町村 *</span>
               <input 
                 type="text" 
                 placeholder="例: 宮城県仙台市宮城野区" 
                 value={prefAndCity} 
                 onChange={e => setPrefAndCity(e.target.value)} 
                 required 
+                className={isPrefAndCityError ? 'input-error' : ''}
                 style={inputStyle} 
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>番地 *</span>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: isStreetNumberError ? '#ef4444' : '#64748b' }}>番地 *</span>
               <input 
                 type="text" 
                 placeholder="例: 榴岡1-2-3" 
                 value={streetNumber} 
                 onChange={e => setStreetNumber(e.target.value)} 
                 required 
+                className={isStreetNumberError ? 'input-error' : ''}
                 style={inputStyle} 
               />
             </div>
@@ -183,24 +200,30 @@ export default function Section5Workplace({
             </div>
           </div>
         </div>
+
         {/* 変動勤務地の場合の活動エリア詳細 */}
         {locationMode === '変動勤務地' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#065f46' }}>変動エリア・プロジェクト先の詳細 *</span>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: isMobileAreaError ? '#ef4444' : '#065f46' }}>変動エリア・プロジェクト先の詳細 *</span>
             <input 
               type="text" 
               placeholder="例: 東北エリア各拠点（仙台・盛岡・青森等への巡回・直行直帰あり）" 
               value={mobileArea} 
               onChange={e => setMobileArea(e.target.value)} 
               required 
+              className={isMobileAreaError ? 'input-error' : ''}
               style={inputStyle} 
             />
           </div>
         )}
       </div>
+
       {/* アクセス */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>アクセス</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: (isAccessStationError || isAccessMinutesError) ? '#ef4444' : '#0f172a' }}>
+          アクセス *
+          {(isAccessStationError || isAccessMinutesError) && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※駅名と分数を入力してください</span>}
+        </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <select value={accessMethod} onChange={e => setAccessMethod(e.target.value)} style={{ ...inputStyle, width: '130px' }}>
             <option value="徒歩">徒歩</option>
@@ -214,6 +237,7 @@ export default function Section5Workplace({
             placeholder="駅名など（例: 仙台駅）" 
             value={accessStation} 
             onChange={e => setAccessStation(e.target.value)} 
+            className={isAccessStationError ? 'input-error' : ''}
             style={stationInputStyle} 
           />
           <input 
@@ -221,11 +245,13 @@ export default function Section5Workplace({
             placeholder="5" 
             value={accessMinutes} 
             onChange={e => setAccessMinutes(e.target.value)} 
+            className={isAccessMinutesError ? 'input-error' : ''}
             style={centerNumberInputStyle} 
           />
           <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>分</span>
         </div>
       </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>リモートワーク・柔軟な働き方</label>
         <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '12px' }}>
@@ -246,6 +272,7 @@ export default function Section5Workplace({
           />
         </div>
       </div>
+
       {/* 勤務時間設定 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -305,6 +332,7 @@ export default function Section5Workplace({
           </div>
         ))}
       </div>
+
       {/* 残業時間の実態 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>残業時間の実態</label>
@@ -325,6 +353,7 @@ export default function Section5Workplace({
           <span style={{ fontSize: '13px', fontWeight: '700', color: overtimeChoice === 'あり' ? '#475569' : '#94a3b8' }}>時間</span>
         </div>
       </div>
+
       {/* 試用期間 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>試用期間</label>
@@ -372,9 +401,13 @@ export default function Section5Workplace({
           </div>
         )}
       </div>
+
       {/* 休日・休暇 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>休日・休暇</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: isHolidayDetailError ? '#ef4444' : '#0f172a' }}>
+          休日・休暇 *
+          {isHolidayDetailError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※休日詳細を入力してください</span>}
+        </label>
         <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '12px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>休日体系</span>
@@ -387,12 +420,13 @@ export default function Section5Workplace({
             </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>詳細</span>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: isHolidayDetailError ? '#ef4444' : '#64748b' }}>詳細 *</span>
             <input 
               type="text" 
               placeholder="詳細を入力（例: 夏季・年末年始休暇、有給休暇、慶弔休暇）" 
               value={holidayDetail} 
               onChange={e => setHolidayDetail(e.target.value)} 
+              className={isHolidayDetailError ? 'input-error' : ''}
               style={inputStyle} 
             />
           </div>

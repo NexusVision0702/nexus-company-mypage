@@ -1,4 +1,4 @@
-// app/jobs/new/components/Section2Salary.tsx (Added '日給' unit option and period handling)
+// app/dashboard/jobs/new/components/Section2Salary.tsx
 'use client';
 
 import React from 'react';
@@ -36,6 +36,7 @@ interface Section2Props {
   inputStyle: React.CSSProperties;
   salaryAmountInputStyle: React.CSSProperties;
   centerNumberInputStyle: React.CSSProperties;
+  hasSubmitted?: boolean; // ★ 追加
 }
 
 // 数値を3桁カンマ区切りの文字列に変換するヘルパー
@@ -69,14 +70,24 @@ export default function Section2Salary({
   setSalaryDetail,
   inputStyle,
   salaryAmountInputStyle,
-  centerNumberInputStyle
+  centerNumberInputStyle,
+  hasSubmitted = false // ★ 追加
 }: Section2Props) {
+  // 未入力チェックの判定
+  const isSalaryFixedError = hasSubmitted && salaryMode === '固定' && !salaryFixed.trim();
+  const isSalaryRangeError = hasSubmitted && salaryMode === '変動' && (!salaryMin.trim() || !salaryMax.trim());
+  const isOvertimeError = hasSubmitted && overtimePayMode === '含む' && (!overtimePayHours.trim() || !overtimePayAmount.trim());
+  const isSalaryDetailError = hasSubmitted && !salaryDetail.trim();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#065f46', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px', margin: 0 }}>2. 報酬・給与・モデル例</h3>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>給与 / 報酬（基本レンジ） *</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: (isSalaryFixedError || isSalaryRangeError) ? '#ef4444' : '#0f172a' }}>
+          給与 / 報酬（基本レンジ） *
+          {(isSalaryFixedError || isSalaryRangeError) && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※入力必須です</span>}
+        </label>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <select value={salaryUnit} onChange={e => setSalaryUnit(e.target.value)} style={{ ...inputStyle, width: '130px' }}>
@@ -100,6 +111,7 @@ export default function Section2Salary({
                   value={salaryFixed} 
                   onChange={e => setSalaryFixed(e.target.value)} 
                   required 
+                  className={isSalaryFixedError ? 'input-error' : ''}
                   style={salaryAmountInputStyle} 
                 />
                 <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>円</span>
@@ -120,6 +132,7 @@ export default function Section2Salary({
                   value={salaryMin} 
                   onChange={e => setSalaryMin(e.target.value)} 
                   required 
+                  className={isSalaryRangeError && !salaryMin.trim() ? 'input-error' : ''}
                   style={salaryAmountInputStyle} 
                 />
                 <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>〜</span>
@@ -129,6 +142,7 @@ export default function Section2Salary({
                   placeholder="上限" 
                   value={salaryMax} 
                   onChange={e => setSalaryMax(e.target.value)} 
+                  className={isSalaryRangeError && !salaryMax.trim() ? 'input-error' : ''}
                   style={salaryAmountInputStyle} 
                 />
                 <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>円</span>
@@ -144,7 +158,10 @@ export default function Section2Salary({
 
         {/* 固定残業代の有無の選択 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-          <label style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>固定残業代</label>
+          <label style={{ fontSize: '12.5px', fontWeight: '700', color: isOvertimeError ? '#ef4444' : '#0f172a' }}>
+            固定残業代
+            {isOvertimeError && <span style={{ fontSize: '11px', color: '#ef4444', marginLeft: '8px' }}>※時間と金額を入力してください</span>}
+          </label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <select value={overtimePayMode} onChange={e => setOvertimePayMode(e.target.value)} style={{ ...inputStyle, width: '160px' }}>
               <option value="含まない">含まない</option>
@@ -159,6 +176,7 @@ export default function Section2Salary({
                     placeholder="40" 
                     value={overtimePayHours} 
                     onChange={e => setOvertimePayHours(e.target.value)} 
+                    className={hasSubmitted && overtimePayMode === '含む' && !overtimePayHours.trim() ? 'input-error' : ''}
                     style={centerNumberInputStyle} 
                   />
                   <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>時間分 /</span>
@@ -168,6 +186,7 @@ export default function Section2Salary({
                     placeholder="65000" 
                     value={overtimePayAmount} 
                     onChange={e => setOvertimePayAmount(e.target.value)} 
+                    className={hasSubmitted && overtimePayMode === '含む' && !overtimePayAmount.trim() ? 'input-error' : ''}
                     style={salaryAmountInputStyle} 
                   />
                   <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>円</span>
@@ -296,12 +315,16 @@ export default function Section2Salary({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>給与詳細（インセンティブ支給条件・昇給賞与など）</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: isSalaryDetailError ? '#ef4444' : '#0f172a' }}>
+          給与詳細（インセンティブ支給条件・昇給賞与など） *
+          {isSalaryDetailError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※入力必須です</span>}
+        </label>
         <textarea 
           rows={2} 
           placeholder="例: 成果に応じたインセンティブを別途支給。" 
           value={salaryDetail} 
           onChange={e => setSalaryDetail(e.target.value)} 
+          className={isSalaryDetailError ? 'input-error' : ''}
           style={{ ...inputStyle, resize: 'vertical' }} 
         />
       </div>

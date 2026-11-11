@@ -85,6 +85,9 @@ export default function NewJobPage() {
   const [loading, setLoading] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
+  // ★ 未入力ハイライト用のフラグ
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
   // 本社・店舗情報の取得（AWS/ローカルストレージ対応と実際のDBデータ連携）
   useEffect(() => {
     const getCookie = (name: string) => {
@@ -115,7 +118,7 @@ export default function NewJobPage() {
             const locations = [
               {
                 id: 'hq',
-                name: branchLabel, // ここをプレーンな名称にする（子側での二重カッコを防ぐため）
+                name: branchLabel,
                 address: fullAddress,
                 phone: comp.businessPhone || comp.phone || '未登録',
                 employees: comp.employeeRegular ? `${comp.employeeRegular}名` : '非公開',
@@ -123,7 +126,6 @@ export default function NewJobPage() {
               }
             ];
 
-            // 登録されている店舗（stores）のマッピング
             if (Array.isArray(comp.stores)) {
               comp.stores.forEach((store: any, idx: number) => {
                 const storeAddr = store.address || `${store.prefecture || ''}${store.city || ''}${store.addressSub || ''}`;
@@ -131,7 +133,7 @@ export default function NewJobPage() {
 
                 locations.push({
                   id: `store_${idx}`,
-                  name: baseStoreName, // 店舗名のみにする
+                  name: baseStoreName,
                   address: storeAddr,
                   phone: store.phone || comp.businessPhone || '未登録',
                   employees: store.employees || '非公開',
@@ -229,7 +231,7 @@ export default function NewJobPage() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -239,8 +241,33 @@ export default function NewJobPage() {
       return;
     }
 
-    const newImageUrls = newFiles.map(file => URL.createObjectURL(file));
-    setJobImages([...jobImages, ...newImageUrls].slice(0, 7));
+    setLoading(true);
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of newFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.message || '画像のアップロードに失敗しました。');
+        }
+
+        uploadedUrls.push(data.url);
+      }
+
+      setJobImages([...jobImages, ...uploadedUrls].slice(0, 7));
+    } catch (err: any) {
+      alert('エラー: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRemoveImage = (index: number) => {
@@ -313,6 +340,7 @@ export default function NewJobPage() {
   const handleOpenPreview = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormComplete) {
+      setHasSubmitted(true); // ★ 未入力項目を赤枠でハイライト表示するフラグをONにする
       alert('未入力の項目があります。すべての必須項目を入力してください。');
       return;
     }
@@ -328,8 +356,70 @@ export default function NewJobPage() {
 
     setLoading(true);
     try {
-      const mockJobId = 'job_' + Date.now();
-      const generatedUrl = `${window.location.origin}/dashboard/jobs/${mockJobId}`;
+      const jobData = {
+        selectedJobCategories,
+        title,
+        employmentType,
+        headcount,
+        salaryUnit,
+        salaryMode,
+        salaryFixed,
+        salaryMin,
+        salaryMax,
+        overtimePayMode,
+        overtimePayHours,
+        overtimePayAmount,
+        salaryDetail,
+        modelSalaries,
+        mission,
+        dailyWork,
+        careerPath,
+        mustRequirements,
+        wantRequirements,
+        idealPerson,
+        locationMode,
+        zipcode,
+        prefAndCity,
+        streetNumber,
+        buildingName,
+        mobileArea,
+        accessMethod,
+        accessStation,
+        accessMinutes,
+        remoteWorkType,
+        remoteWorkDetail,
+        workSchedules,
+        overtimeChoice,
+        overtimeHours,
+        probationChoice,
+        probationDuration,
+        probationUnit,
+        probationChange,
+        probationChangeDetail,
+        holidayType,
+        holidayDetail,
+        teamAtmosphere,
+        jobImages,
+        selectedBenefits,
+        benefitsExtra,
+        smoking,
+        selectionSteps,
+        selectedPostingLocation,
+      };
+
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, jobData }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        throw new Error(data.message || '求人の保存に失敗しました。');
+      }
+
+      const generatedUrl = `${window.location.origin}/dashboard/jobs/${data.jobId}`;
       setPublishedUrl(generatedUrl);
     } catch (err: any) {
       alert('作成失敗: ' + err.message);
@@ -763,6 +853,7 @@ export default function NewJobPage() {
             employmentType={employmentType} setEmploymentType={setEmploymentType}
             headcount={headcount} setHeadcount={setHeadcount}
             inputStyle={inputStyle}
+            hasSubmitted={hasSubmitted} // ★ 追加
           />
 
           <Section2Salary 
@@ -779,6 +870,7 @@ export default function NewJobPage() {
             salaryDetail={salaryDetail} setSalaryDetail={setSalaryDetail}
             inputStyle={inputStyle} salaryAmountInputStyle={salaryAmountInputStyle}
             centerNumberInputStyle={centerNumberInputStyle}
+            hasSubmitted={hasSubmitted} // ★ 追加
           />
 
           <Section3Mission 
@@ -786,6 +878,7 @@ export default function NewJobPage() {
             dailyWork={dailyWork} setDailyWork={setDailyWork}
             careerPath={careerPath} setCareerPath={setCareerPath}
             inputStyle={inputStyle}
+            hasSubmitted={hasSubmitted} // ★ 追加
           />
 
           <Section4Requirements 
@@ -793,6 +886,7 @@ export default function NewJobPage() {
             wantRequirements={wantRequirements} setWantRequirements={setWantRequirements}
             idealPerson={idealPerson} setIdealPerson={setIdealPerson}
             inputStyle={inputStyle}
+            hasSubmitted={hasSubmitted} // ★ 追加
           />
 
           <Section5Workplace 
@@ -823,6 +917,7 @@ export default function NewJobPage() {
             centerNumberInputStyle={centerNumberInputStyle}
             disabledCenterNumberInputStyle={disabledCenterNumberInputStyle}
             stationInputStyle={stationInputStyle}
+            hasSubmitted={hasSubmitted} // ★ 追加
           />
 
           <Section6CompanyCulture 
@@ -841,6 +936,7 @@ export default function NewJobPage() {
             availableLocations={availableLocations}
             selectedPostingLocation={selectedPostingLocation}
             setSelectedPostingLocation={setSelectedPostingLocation}
+            hasSubmitted={hasSubmitted} // ★ 追加
           />
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', marginTop: '20px' }}>

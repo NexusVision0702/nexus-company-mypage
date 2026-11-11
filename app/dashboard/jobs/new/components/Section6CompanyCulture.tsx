@@ -1,4 +1,4 @@
-// app/jobs/new/components/Section6CompanyCulture.tsx
+// app/dashboard/jobs/new/components/Section6CompanyCulture.tsx
 'use client';
 
 import React from 'react';
@@ -52,6 +52,7 @@ interface Section6Props {
   availableLocations: LocationItem[];
   selectedPostingLocation: string;
   setSelectedPostingLocation: (val: string) => void;
+  hasSubmitted?: boolean; // ★ 追加
 }
 
 export default function Section6CompanyCulture({
@@ -73,20 +74,31 @@ export default function Section6CompanyCulture({
   inputStyle,
   availableLocations = [],
   selectedPostingLocation = '',
-  setSelectedPostingLocation = () => {}
+  setSelectedPostingLocation = () => {},
+  hasSubmitted = false // ★ 追加
 }: Section6Props) {
+  // 未入力チェックの判定
+  const isTeamAtmosphereError = hasSubmitted && !teamAtmosphere.trim();
+  const isBenefitsError = hasSubmitted && selectedBenefits.length === 0;
+  const isSelectionStepsError = hasSubmitted && (selectionSteps.length === 0 || selectionSteps.some(s => !s.trim()));
+  const isPostingLocationError = hasSubmitted && !selectedPostingLocation.trim();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#065f46', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px', margin: 0 }}>6. 福利厚生・社風・選考プロセス・写真</h3>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>チームの雰囲気・社風 *</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: isTeamAtmosphereError ? '#ef4444' : '#0f172a' }}>
+          チームの雰囲気・社風 *
+          {isTeamAtmosphereError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※入力必須です</span>}
+        </label>
         <textarea 
           rows={3}
           placeholder="例: 平均年齢32歳。フラットで意見が言いやすく、裁量権を持って挑戦できる環境です。" 
           value={teamAtmosphere} 
           onChange={e => setTeamAtmosphere(e.target.value)} 
           required 
+          className={isTeamAtmosphereError ? 'input-error' : ''}
           style={{ ...inputStyle, resize: 'vertical' }} 
         />
       </div>
@@ -143,9 +155,15 @@ export default function Section6CompanyCulture({
 
       {/* 福利厚生・各種手当 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>福利厚生・各種手当 *</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: isBenefitsError ? '#ef4444' : '#0f172a' }}>
+          福利厚生・各種手当 *
+          {isBenefitsError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※1つ以上選択してください</span>}
+        </label>
         
-        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+        <div 
+          className={isBenefitsError ? 'input-error' : ''}
+          style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}
+        >
           {commonBenefitsList.map((benefit) => {
             const isChecked = selectedBenefits.includes(benefit);
             return (
@@ -190,11 +208,14 @@ export default function Section6CompanyCulture({
         background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', 
         padding: '24px', 
         borderRadius: '20px', 
-        border: '1px solid #e2e8f0'
+        border: isSelectionStepsError ? '2px solid #ef4444' : '1px solid #e2e8f0'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <label style={{ fontSize: '13.5px', fontWeight: '800', color: '#0f172a' }}>選考プロセス（進行フロー・最大6ステップ） *</label>
+            <label style={{ fontSize: '13.5px', fontWeight: '800', color: isSelectionStepsError ? '#ef4444' : '#0f172a' }}>
+              選考プロセス（進行フロー・最大6ステップ） *
+              {isSelectionStepsError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※すべてのステップを入力してください</span>}
+            </label>
             <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>※ステップ数に応じて自動で幅が調整され、最大6つまで設定できます</p>
           </div>
           {selectionSteps.length < 6 && (
@@ -298,6 +319,7 @@ export default function Section6CompanyCulture({
                   onChange={e => updateSelectionStep(index, e.target.value)} 
                   placeholder={`ステップ${index + 1}`} 
                   required
+                  className={hasSubmitted && !step.trim() ? 'input-error' : ''}
                   style={{ 
                     width: '100%', 
                     padding: '8px 6px', 
@@ -329,16 +351,21 @@ export default function Section6CompanyCulture({
         </div>
       </div>
 
-      {/* 求人を出している拠点・店舗（本社の場合は「本社」と表示） ＆ 受動喫煙防止措置 */}
+      {/* 求人を出している拠点・店舗 ＆ 受動喫煙防止措置 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>求人を出している拠点・店舗 *</label>
+          <label style={{ fontSize: '13px', fontWeight: '700', color: isPostingLocationError ? '#ef4444' : '#0f172a' }}>
+            求人を出している拠点・店舗 *
+            {isPostingLocationError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※選択必須です</span>}
+          </label>
           <select 
             value={selectedPostingLocation} 
             onChange={e => setSelectedPostingLocation(e.target.value)} 
+            className={isPostingLocationError ? 'input-error' : ''}
             style={inputStyle} 
             required
           >
+            <option value="">選択してください</option>
             {availableLocations.map((loc) => {
               const displayLabel = `${loc.name}（${loc.address || '住所未登録'}）`;
               return (

@@ -36,15 +36,38 @@ export default function JobsPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>('すべて');
   const [statusFilter, setStatusFilter] = useState<string>('すべて');
 
+  // ★ 企業IDの取得と、APIからの求人データ取得処理を追加
   useEffect(() => {
-    const id = localStorage.getItem('nexus_company_id');
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(';').shift();
+    };
+
+    const id = getCookie('nexus_company_id') || localStorage.getItem('nexus_company_id');
     if (!id) {
-      localStorage.setItem('nexus_company_id', 'demo_company_001');
-      setCompanyId('demo_company_001');
-    } else {
-      setCompanyId(id);
+      window.location.href = '/login';
+      return;
     }
-    setLoading(false);
+    setCompanyId(id);
+
+    const fetchJobs = async (compId: string) => {
+      try {
+        const res = await fetch(`/api/jobs?companyId=${compId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.jobs) {
+            setJobs(data.jobs);
+          }
+        }
+      } catch (err) {
+        console.error('求人一覧の取得に失敗しました:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs(id);
   }, []);
 
   const handleStatusChange = async (index: number, newStatus: string) => {
@@ -55,8 +78,18 @@ export default function JobsPage() {
 
   const handleDeleteJob = async (id: string) => {
     if (!confirm('この求人を削除してもよろしいですか？')) return;
-    setJobs(jobs.filter(job => job.id !== id));
-    alert('求人を削除しました。');
+    try {
+      const res = await fetch(`/api/jobs?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setJobs(jobs.filter(job => job.id !== id));
+        alert('求人を削除しました。');
+      } else {
+        alert('削除に失敗しました。');
+      }
+    } catch (err) {
+      console.error('削除エラー:', err);
+      alert('通信エラーが発生しました。');
+    }
   };
 
   // 選択肢用のユニークなリストを生成
@@ -210,7 +243,17 @@ export default function JobsPage() {
                             <option value="停止中">⚪ 停止中</option>
                           </select>
 
+                          {/* 公開ページ確認ボタンを追加 */}
                           <button 
+                            type="button"
+                            onClick={() => window.open(`/dashboard/jobs/${job.id}`, '_blank')}
+                            style={{ background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', padding: '9px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
+                          >
+                            確認 ↗
+                          </button>
+
+                          <button 
+                            type="button"
                             onClick={() => { window.location.href = `/dashboard/jobs/new?id=${job.id}`; }} 
                             style={{ background: '#059669', color: '#fff', border: 'none', padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
                           >
@@ -218,6 +261,7 @@ export default function JobsPage() {
                           </button>
                           
                           <button 
+                            type="button"
                             onClick={() => handleDeleteJob(job.id)} 
                             style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '9px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
                           >

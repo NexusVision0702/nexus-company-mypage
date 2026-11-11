@@ -33,3 +33,9 @@ body {
   width: 100vw;
   box-sizing: border-box;
 }
+
+/* ★ 未入力項目のハイライト用スタイル */
+.input-error {
+  border: 2px solid #ef4444 !important; /* 赤い枠線 */
+  background-color: #fef2f2 !important; /* 薄い赤色の背景 */
+}

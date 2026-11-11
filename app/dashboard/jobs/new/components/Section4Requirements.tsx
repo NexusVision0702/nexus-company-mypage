@@ -11,6 +11,7 @@ interface Section4Props {
   idealPerson: string;
   setIdealPerson: (val: string) => void;
   inputStyle: React.CSSProperties;
+  hasSubmitted?: boolean; // ★ 追加
 }
 
 export default function Section4Requirements({
@@ -20,41 +21,59 @@ export default function Section4Requirements({
   setWantRequirements,
   idealPerson,
   setIdealPerson,
-  inputStyle
+  inputStyle,
+  hasSubmitted = false // ★ 追加
 }: Section4Props) {
+  // 未入力チェックの判定
+  const isMustError = hasSubmitted && !mustRequirements.trim();
+  const isWantError = hasSubmitted && !wantRequirements.trim();
+  const isIdealError = hasSubmitted && !idealPerson.trim();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#065f46', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px', margin: 0 }}>4. 応募要件（スキル・経験・人物像）</h3>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>【必須】求めるスキル・経験</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: isMustError ? '#ef4444' : '#0f172a' }}>
+          【必須】求めるスキル・経験 *
+          {isMustError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※入力必須です</span>}
+        </label>
         <textarea 
           rows={3} 
           placeholder="例: 法人営業経験2年以上、またはマネジメント・プロジェクト推進の経験（業界不問）" 
           value={mustRequirements} 
           onChange={e => setMustRequirements(e.target.value)} 
+          className={isMustError ? 'input-error' : ''}
           style={{ ...inputStyle, resize: 'vertical' }} 
         />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>【歓迎】望ましい経験・スキル</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: isWantError ? '#ef4444' : '#0f172a' }}>
+          【歓迎】望ましい経験・スキル *
+          {isWantError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※入力必須です</span>}
+        </label>
         <textarea 
           rows={3} 
           placeholder="例: ベンチャー企業での立ち上げ経験、Webサービスの知見、チームマネジメント経験" 
           value={wantRequirements} 
           onChange={e => setWantRequirements(e.target.value)} 
+          className={isWantError ? 'input-error' : ''}
           style={{ ...inputStyle, resize: 'vertical' }} 
         />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>こんな方と一緒に働きたい（求める人物像）</label>
+        <label style={{ fontSize: '13px', fontWeight: '700', color: isIdealError ? '#ef4444' : '#0f172a' }}>
+          こんな方と一緒に働きたい（求める人物像） *
+          {isIdealError && <span style={{ fontSize: '11.5px', color: '#ef4444', marginLeft: '8px' }}>※入力必須です</span>}
+        </label>
         <textarea 
           rows={3} 
           placeholder="例: 変化を楽しみながら主体的に行動できる方、チームワークを大切にし周囲と協力して成果を出せる方" 
           value={idealPerson} 
           onChange={e => setIdealPerson(e.target.value)} 
+          className={isIdealError ? 'input-error' : ''}
           style={{ ...inputStyle, resize: 'vertical' }} 
         />
       </div>
