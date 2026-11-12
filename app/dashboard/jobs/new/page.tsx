@@ -15,19 +15,20 @@ const minutes = ['00', '15', '30', '45'];
 
 export default function NewJobPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [editJobId, setEditJobId] = useState<string | null>(null);
   
   // 企業データ（本社・店舗詳細情報を含む）
   const [companyProfile, setCompanyProfile] = useState<any>(null);
   const [availableLocations, setAvailableLocations] = useState<{ id: string; name: string; address: string; phone: string; employees: string; hours: string }[]>([]);
   const [selectedPostingLocation, setSelectedPostingLocation] = useState('本社');
 
-  // 1. 基本情報（初期値を空に設定）
+  // 1. 基本情報
   const [selectedJobCategories, setSelectedJobCategories] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [employmentType, setEmploymentType] = useState('正社員');
   const [headcount, setHeadcount] = useState('');
 
-  // 2. 報酬・給与（初期値を空に設定）
+  // 2. 報酬・給与
   const [salaryUnit, setSalaryUnit] = useState('年収');
   const [salaryMode, setSalaryMode] = useState('変動');
   const [salaryFixed, setSalaryFixed] = useState('');
@@ -39,17 +40,17 @@ export default function NewJobPage() {
   const [salaryDetail, setSalaryDetail] = useState('');
   const [modelSalaries, setModelSalaries] = useState<any[]>([]);
 
-  // 3. ミッション等（初期値を空に設定）
+  // 3. ミッション等
   const [mission, setMission] = useState('');
   const [dailyWork, setDailyWork] = useState('');
   const [careerPath, setCareerPath] = useState('');
 
-  // 4. 応募要件（初期値を空に設定）
+  // 4. 応募要件
   const [mustRequirements, setMustRequirements] = useState('');
   const [wantRequirements, setWantRequirements] = useState('');
   const [idealPerson, setIdealPerson] = useState('');
 
-  // 5. 勤務地・環境（初期値を空に設定）
+  // 5. 勤務地・環境
   const [locationMode, setLocationMode] = useState('固定勤務地');
   const [zipcode, setZipcode] = useState('');
   const [prefAndCity, setPrefAndCity] = useState('');
@@ -72,7 +73,7 @@ export default function NewJobPage() {
   const [holidayType, setHolidayType] = useState('完全週休2日制（土日祝）');
   const [holidayDetail, setHolidayDetail] = useState('');
 
-  // 6. 福利厚生・社風・選考プロセス・写真（初期値を空に設定）
+  // 6. 福利厚生・社風・選考プロセス・写真
   const [teamAtmosphere, setTeamAtmosphere] = useState('');
   const [jobImages, setJobImages] = useState<string[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
@@ -85,10 +86,9 @@ export default function NewJobPage() {
   const [loading, setLoading] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
-  // ★ 未入力ハイライト用のフラグ
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
-  // 本社・店舗情報の取得（AWS/ローカルストレージ対応と実際のDBデータ連携）
+  // 初期化・データ取得（編集モード対応）
   useEffect(() => {
     const getCookie = (name: string) => {
       const value = `; ${document.cookie}`;
@@ -103,11 +103,17 @@ export default function NewJobPage() {
     }
     setCompanyId(id);
 
-    const fetchCompanyAndLocations = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const jobIdParam = params.get('id');
+    if (jobIdParam) {
+      setEditJobId(jobIdParam);
+    }
+
+    const fetchCompanyAndJobData = async () => {
       try {
-        const res = await fetch(`/api/company?companyId=${id}`);
-        if (res.ok) {
-          const data = await res.json();
+        const compRes = await fetch(`/api/company?companyId=${id}`);
+        if (compRes.ok) {
+          const data = await compRes.json();
           if (data && data.company) {
             const comp = data.company;
             setCompanyProfile(comp);
@@ -148,15 +154,72 @@ export default function NewJobPage() {
             }
           }
         }
+
+        if (jobIdParam) {
+          const jobRes = await fetch(`/api/jobs`);
+          if (jobRes.ok) {
+            const jobDataRes = await jobRes.json();
+            const targetJob = jobDataRes.jobs?.find((j: any) => j.id === jobIdParam);
+            if (targetJob) {
+              setSelectedJobCategories(targetJob.selectedJobCategories || []);
+              setTitle(targetJob.title || '');
+              setEmploymentType(targetJob.employmentType || '正社員');
+              setHeadcount(targetJob.headcount || '');
+              setSalaryUnit(targetJob.salaryUnit || '年収');
+              setSalaryMode(targetJob.salaryMode || '変動');
+              setSalaryFixed(targetJob.salaryFixed || '');
+              setSalaryMin(targetJob.salaryMin || '');
+              setSalaryMax(targetJob.salaryMax || '');
+              setOvertimePayMode(targetJob.overtimePayMode || '含む');
+              setOvertimePayHours(targetJob.overtimePayHours || '');
+              setOvertimePayAmount(targetJob.overtimePayAmount || '');
+              setSalaryDetail(targetJob.salaryDetail || '');
+              setModelSalaries(targetJob.modelSalaries || []);
+              setMission(targetJob.mission || '');
+              setDailyWork(targetJob.dailyWork || '');
+              setCareerPath(targetJob.careerPath || '');
+              setMustRequirements(targetJob.mustRequirements || '');
+              setWantRequirements(targetJob.wantRequirements || '');
+              setIdealPerson(targetJob.idealPerson || '');
+              setLocationMode(targetJob.locationMode || '固定勤務地');
+              setZipcode(targetJob.zipcode || '');
+              setPrefAndCity(targetJob.prefAndCity || '');
+              setStreetNumber(targetJob.streetNumber || '');
+              setBuildingName(targetJob.buildingName || '');
+              setMobileArea(targetJob.mobileArea || '');
+              setAccessMethod(targetJob.accessMethod || '徒歩');
+              setAccessStation(targetJob.accessStation || '');
+              setAccessMinutes(targetJob.accessMinutes || '');
+              setRemoteWorkType(targetJob.remoteWorkType || '一部リモートワーク可');
+              setRemoteWorkDetail(targetJob.remoteWorkDetail || '');
+              setWorkSchedules(targetJob.workSchedules || []);
+              setOvertimeChoice(targetJob.overtimeChoice || 'あり');
+              setOvertimeHours(targetJob.overtimeHours || '');
+              setProbationChoice(targetJob.probationChoice || 'あり');
+              setProbationDuration(targetJob.probationDuration || '');
+              setProbationUnit(targetJob.probationUnit || '月');
+              setProbationChange(targetJob.probationChange || '条件変動なし');
+              setProbationChangeDetail(targetJob.probationChangeDetail || '');
+              setHolidayType(targetJob.holidayType || '完全週休2日制（土日祝）');
+              setHolidayDetail(targetJob.holidayDetail || '');
+              setTeamAtmosphere(targetJob.teamAtmosphere || '');
+              setJobImages(targetJob.jobImages || []);
+              setSelectedBenefits(targetJob.selectedBenefits || []);
+              setBenefitsExtra(targetJob.benefitsExtra || '');
+              setSmoking(targetJob.smoking || '屋内禁煙（専用喫煙室あり）');
+              setSelectionSteps(targetJob.selectionSteps || []);
+              if (targetJob.selectedPostingLocation) {
+                setSelectedPostingLocation(targetJob.selectedPostingLocation);
+              }
+            }
+          }
+        }
       } catch (err) {
-        console.error('拠点情報の取得に失敗しました:', err);
-        setAvailableLocations([
-          { id: 'hq', name: '本社', address: '住所未登録', phone: '未登録', employees: '非公開', hours: '9:00 〜 18:00' }
-        ]);
+        console.error('初期データの取得に失敗しました:', err);
       }
     };
 
-    fetchCompanyAndLocations();
+    fetchCompanyAndJobData();
   }, []);
 
   const currentPostingLocationDetails = availableLocations.find(loc => loc.name === selectedPostingLocation) || availableLocations[0] || {
@@ -340,7 +403,7 @@ export default function NewJobPage() {
   const handleOpenPreview = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormComplete) {
-      setHasSubmitted(true); // ★ 未入力項目を赤枠でハイライト表示するフラグをONにする
+      setHasSubmitted(true);
       alert('未入力の項目があります。すべての必須項目を入力してください。');
       return;
     }
@@ -407,10 +470,14 @@ export default function NewJobPage() {
         selectedPostingLocation,
       };
 
-      const res = await fetch('/api/jobs', {
-        method: 'POST',
+      const endpoint = '/api/jobs';
+      const method = editJobId ? 'PUT' : 'POST';
+      const payload = editJobId ? { companyId, jobId: editJobId, jobData } : { companyId, jobData };
+
+      const res = await fetch(endpoint, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, jobData }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -419,10 +486,11 @@ export default function NewJobPage() {
         throw new Error(data.message || '求人の保存に失敗しました。');
       }
 
-      const generatedUrl = `${window.location.origin}/dashboard/jobs/${data.jobId}`;
+      const targetJobId = editJobId || data.jobId;
+      const generatedUrl = `${window.location.origin}/dashboard/jobs/${targetJobId}`;
       setPublishedUrl(generatedUrl);
     } catch (err: any) {
-      alert('作成失敗: ' + err.message);
+      alert('保存失敗: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -477,7 +545,7 @@ export default function NewJobPage() {
   };
 
   // ==========================================
-  // 【公開完了画面】
+  // 【公開・更新完了画面】
   // ==========================================
   if (publishedUrl) {
     return (
@@ -489,8 +557,8 @@ export default function NewJobPage() {
           </div>
 
           <div>
-            <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', margin: '0 0 8px 0' }}>求人の公開が完了しました！</h2>
-            <p style={{ fontSize: '14.5px', color: '#64748b', margin: 0 }}>以下の本番用URLから、いつでも求職者向けの求人ページにアクセスできます。</p>
+            <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', margin: '0 0 8px 0' }}>{editJobId ? '求人の更新が完了しました！' : '求人の公開が完了しました！'}</h2>
+            <p style={{ fontSize: '14.5px', color: '#64748b', margin: 0 }}>以下の本番用URLから、求人ページをご確認いただけます。</p>
           </div>
 
           <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -577,7 +645,7 @@ export default function NewJobPage() {
               onClick={handleConfirmPublish}
               style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#ffffff', border: 'none', padding: '10px 28px', borderRadius: '10px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 15px rgba(5, 150, 105, 0.3)' }}
             >
-              {loading ? '公開中...' : 'この内容で公開する'}
+              {loading ? '保存中...' : (editJobId ? 'この内容で更新する' : 'この内容で公開する')}
             </button>
           </div>
         </div>
@@ -718,21 +786,23 @@ export default function NewJobPage() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: '6px' }}>
-                  <strong style={{ color: '#0f172a', display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '900' }}>✨ 福利厚生・手当</strong>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {selectedBenefits.map((b, i) => (
-                      <span key={i} style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '8px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '800' }}>
-                        ✓ {b}
-                      </span>
-                    ))}
-                    {benefitsExtra && (
-                      <span style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '8px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '800' }}>
-                        ✓ {benefitsExtra}
-                      </span>
-                    )}
+                {selectedBenefits.length > 0 && (
+                  <div style={{ marginTop: '6px' }}>
+                    <strong style={{ color: '#0f172a', display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '900' }}>✨ 福利厚生・手当</strong>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {selectedBenefits.map((b, i) => (
+                        <span key={i} style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '8px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '800' }}>
+                          ✓ {b}
+                        </span>
+                      ))}
+                      {benefitsExtra && (
+                        <span style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '8px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '800' }}>
+                          ✓ {benefitsExtra}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: isMobileFrame ? '20px' : '38px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
@@ -793,7 +863,7 @@ export default function NewJobPage() {
                   onClick={handleConfirmPublish}
                   style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#ffffff', border: 'none', padding: '16px 24px', borderRadius: '14px', fontSize: '15px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 10px 25px rgba(5, 150, 105, 0.35)', width: '100%' }}
                 >
-                  {loading ? '公開中...' : 'この内容で求人を公開する'}
+                  {loading ? '保存中...' : (editJobId ? 'この内容で求人を更新する' : 'この内容で求人を公開する')}
                 </button>
                 <button 
                   type="button" 
@@ -813,7 +883,7 @@ export default function NewJobPage() {
   }
 
   // ==========================================
-  // 【通常フォーム作成画面】
+  // 【通常フォーム作成・編集画面】
   // ==========================================
   return (
     <div style={{ minHeight: '90vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '60px 40px', boxSizing: 'border-box' }}>
@@ -821,8 +891,12 @@ export default function NewJobPage() {
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '24px' }}>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#059669', marginBottom: '6px' }}>RECRUITMENT / CREATE</div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>新規求人を作成</h1>
+            <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#059669', marginBottom: '6px' }}>
+              {editJobId ? 'RECRUITMENT / EDIT' : 'RECRUITMENT / CREATE'}
+            </div>
+            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+              {editJobId ? '求人情報を編集' : '新規求人を作成'}
+            </h1>
           </div>
           <button 
             type="button"
@@ -853,7 +927,7 @@ export default function NewJobPage() {
             employmentType={employmentType} setEmploymentType={setEmploymentType}
             headcount={headcount} setHeadcount={setHeadcount}
             inputStyle={inputStyle}
-            hasSubmitted={hasSubmitted} // ★ 追加
+            hasSubmitted={hasSubmitted}
           />
 
           <Section2Salary 
@@ -870,7 +944,7 @@ export default function NewJobPage() {
             salaryDetail={salaryDetail} setSalaryDetail={setSalaryDetail}
             inputStyle={inputStyle} salaryAmountInputStyle={salaryAmountInputStyle}
             centerNumberInputStyle={centerNumberInputStyle}
-            hasSubmitted={hasSubmitted} // ★ 追加
+            hasSubmitted={hasSubmitted}
           />
 
           <Section3Mission 
@@ -878,7 +952,7 @@ export default function NewJobPage() {
             dailyWork={dailyWork} setDailyWork={setDailyWork}
             careerPath={careerPath} setCareerPath={setCareerPath}
             inputStyle={inputStyle}
-            hasSubmitted={hasSubmitted} // ★ 追加
+            hasSubmitted={hasSubmitted}
           />
 
           <Section4Requirements 
@@ -886,7 +960,7 @@ export default function NewJobPage() {
             wantRequirements={wantRequirements} setWantRequirements={setWantRequirements}
             idealPerson={idealPerson} setIdealPerson={setIdealPerson}
             inputStyle={inputStyle}
-            hasSubmitted={hasSubmitted} // ★ 追加
+            hasSubmitted={hasSubmitted}
           />
 
           <Section5Workplace 
@@ -917,7 +991,7 @@ export default function NewJobPage() {
             centerNumberInputStyle={centerNumberInputStyle}
             disabledCenterNumberInputStyle={disabledCenterNumberInputStyle}
             stationInputStyle={stationInputStyle}
-            hasSubmitted={hasSubmitted} // ★ 追加
+            hasSubmitted={hasSubmitted}
           />
 
           <Section6CompanyCulture 
@@ -936,7 +1010,7 @@ export default function NewJobPage() {
             availableLocations={availableLocations}
             selectedPostingLocation={selectedPostingLocation}
             setSelectedPostingLocation={setSelectedPostingLocation}
-            hasSubmitted={hasSubmitted} // ★ 追加
+            hasSubmitted={hasSubmitted}
           />
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', marginTop: '20px' }}>
@@ -956,7 +1030,7 @@ export default function NewJobPage() {
                 transition: 'all 0.2s ease' 
               }}
             >
-              {isFormComplete ? '公開（プレビュー）する' : 'すべての必須項目を入力してください'}
+              {isFormComplete ? '更新内容を確認する' : 'すべての必須項目を入力してください'}
             </button>
             {!isFormComplete && (
               <span style={{ fontSize: '12px', fontWeight: '700', color: '#ef4444' }}>

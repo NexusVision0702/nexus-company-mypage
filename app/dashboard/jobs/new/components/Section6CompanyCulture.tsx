@@ -52,7 +52,7 @@ interface Section6Props {
   availableLocations: LocationItem[];
   selectedPostingLocation: string;
   setSelectedPostingLocation: (val: string) => void;
-  hasSubmitted?: boolean; // ★ 追加
+  hasSubmitted?: boolean;
 }
 
 export default function Section6CompanyCulture({
@@ -75,9 +75,8 @@ export default function Section6CompanyCulture({
   availableLocations = [],
   selectedPostingLocation = '',
   setSelectedPostingLocation = () => {},
-  hasSubmitted = false // ★ 追加
+  hasSubmitted = false
 }: Section6Props) {
-  // 未入力チェックの判定
   const isTeamAtmosphereError = hasSubmitted && !teamAtmosphere.trim();
   const isBenefitsError = hasSubmitted && selectedBenefits.length === 0;
   const isSelectionStepsError = hasSubmitted && (selectionSteps.length === 0 || selectionSteps.some(s => !s.trim()));
@@ -369,7 +368,7 @@ export default function Section6CompanyCulture({
             {availableLocations.map((loc) => {
               const displayLabel = `${loc.name}（${loc.address || '住所未登録'}）`;
               return (
-                <option key={loc.id} value={displayLabel}>
+                <option key={loc.id} value={loc.name}>
                   {displayLabel}
                 </option>
               );

@@ -14,7 +14,8 @@ interface JobItem {
   createdAt: string;
   startDate: string;
   endDate: string;
-  viewCount: number;
+  listPvCount: number;    // ★ 一覧PV数
+  detailPvCount: number;  // ★ 詳細PV数
   applicantCount: number;
   status: string;
   postingLocationInfo?: {
@@ -36,7 +37,7 @@ export default function JobsPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>('すべて');
   const [statusFilter, setStatusFilter] = useState<string>('すべて');
 
-  // ★ 企業IDの取得と、APIからの求人データ取得処理を追加
+  // 企業IDの取得と、APIからの求人データ取得 ＆ 一覧PVの自動カウントアップ
   useEffect(() => {
     const getCookie = (name: string) => {
       const value = `; ${document.cookie}`;
@@ -58,6 +59,11 @@ export default function JobsPage() {
           const data = await res.json();
           if (data && data.jobs) {
             setJobs(data.jobs);
+
+            // ★ 一覧画面に表示されたので、各求人の一覧PV（listPvCount）を非同期でカウントアップ
+            data.jobs.forEach(async (job: JobItem) => {
+              await fetch(`/api/jobs?id=${job.id}&type=list`, { method: 'PATCH' }).catch(() => {});
+            });
           }
         }
       } catch (err) {
@@ -243,7 +249,7 @@ export default function JobsPage() {
                             <option value="停止中">⚪ 停止中</option>
                           </select>
 
-                          {/* 公開ページ確認ボタンを追加 */}
+                          {/* 公開ページ確認ボタン */}
                           <button 
                             type="button"
                             onClick={() => window.open(`/dashboard/jobs/${job.id}`, '_blank')}
@@ -290,10 +296,16 @@ export default function JobsPage() {
                         </div>
                       </div>
 
+                      {/* ★ 一覧PV数 ＆ 詳細PV数 ＆ 応募者数 の表示切り替え */}
                       <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '14px 20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                         <div style={{ textAlign: 'center' }}>
-                          <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>閲覧数 (PV)</span>
-                          <span style={{ fontSize: '18px', color: '#0f172a', fontWeight: '800' }}>{job.viewCount} <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#64748b' }}>回</span></span>
+                          <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>一覧PV数</span>
+                          <span style={{ fontSize: '18px', color: '#0f172a', fontWeight: '800' }}>{job.listPvCount || 0} <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#64748b' }}>回</span></span>
+                        </div>
+                        <div style={{ borderLeft: '1px solid #bbf7d0', height: '30px' }}></div>
+                        <div style={{ textAlign: 'center' }}>
+                          <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>詳細PV数</span>
+                          <span style={{ fontSize: '18px', color: '#0f172a', fontWeight: '800' }}>{job.detailPvCount || 0} <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#64748b' }}>回</span></span>
                         </div>
                         <div style={{ borderLeft: '1px solid #bbf7d0', height: '30px' }}></div>
                         <div style={{ textAlign: 'center' }}>
