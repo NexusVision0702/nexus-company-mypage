@@ -9,6 +9,15 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     url.searchParams.set('publishedOnly', 'true');
 
+    const limitParam = parseInt(url.searchParams.get('limit') || '30', 10);
+    const offsetParam = parseInt(url.searchParams.get('offset') || '0', 10);
+    const limit =
+      Number.isNaN(limitParam) || limitParam <= 0
+        ? 30
+        : Math.min(limitParam, 100);
+    const offset =
+      Number.isNaN(offsetParam) || offsetParam < 0 ? 0 : offsetParam;
+
     const forwardedRequest = new Request(url.toString(), {
       method: 'GET',
       headers: request.headers,
@@ -17,19 +26,34 @@ export async function GET(request: Request) {
     const response = await getJobs(forwardedRequest);
     const data = await response.json();
 
-    const publishedJobs = Array.isArray(data?.jobs)
-      ? data.jobs.filter((job: any) => (job?.status || '公開中') === '公開中')
+    const allPublishedJobs = Array.isArray(data?.jobs)
+      ? data.jobs
+          .filter((job: any) => (job?.status || '公開中') === '公開中')
+          .sort((a: any, b: any) => {
+            const timeA = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+            const timeB = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+            return timeB - timeA;
+          })
       : [];
+
+    const totalCount = allPublishedJobs.length;
+    const paginatedJobs = allPublishedJobs.slice(offset, offset + limit);
+    const hasMore = offset + paginatedJobs.length < totalCount;
 
     return NextResponse.json(
       {
         success: response.ok,
-        jobs: publishedJobs,
+        jobs: paginatedJobs,
+        totalCount,
+        offset,
+        limit,
+        hasMore,
       },
       {
         status: response.status,
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Cache-Control':
+            'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
           Pragma: 'no-cache',
           Expires: '0',
         },
@@ -46,7 +70,8 @@ export async function GET(request: Request) {
       {
         status: 500,
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Cache-Control':
+            'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
         },
       }
     );
