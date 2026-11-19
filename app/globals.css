@@ -19,19 +19,61 @@
   }
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   margin: 0;
   padding: 0;
+  max-width: 100%;
   overflow-x: hidden;
 }
 
-/* 画面端まで安全に広げるためのクラス */
+/* 画面端まで安全に広げるためのクラス（横スクロールバーによるズレを防止） */
 .full-bleed-nav {
-  width: 100vw;
+  width: 100%;
+  max-width: 100vw;
   box-sizing: border-box;
+}
+
+/* メディアやフォーム部品が親枠・画面幅からはみ出さないようにする */
+img,
+svg,
+video,
+canvas,
+input,
+select,
+textarea,
+button {
+  max-width: 100%;
+}
+
+img,
+svg,
+video,
+canvas {
+  height: auto;
+}
+
+/* 長い文字列・住所・URLなどで枠が突き抜けないようにする */
+p,
+h1,
+h2,
+h3,
+h4,
+div,
+span,
+a,
+button,
+label {
+  overflow-wrap: anywhere;
 }
 
 /* ★ 未入力項目のハイライト用スタイル */

@@ -12,6 +12,7 @@ interface JobItem {
   plan: string;
   duration: string;
   createdAt: string;
+  updatedAt?: string;
   startDate: string;
   endDate: string;
   listPvCount: number;    // ★ 一覧PV数
@@ -76,10 +77,43 @@ export default function JobsPage() {
     fetchJobs(id);
   }, []);
 
+  // ステータス（「公開中」／「停止中」）変更時にDBへ即時保存
   const handleStatusChange = async (index: number, newStatus: string) => {
+    const targetJob = jobs[index];
+    if (!targetJob) return;
+
+    const prevStatus = targetJob.status;
+    const updatedAt = new Date().toISOString();
+
     const updated = [...jobs];
-    updated[index].status = newStatus;
+    updated[index] = { ...targetJob, status: newStatus, updatedAt };
     setJobs(updated);
+
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: companyId || undefined,
+          jobId: targetJob.id,
+          jobData: {
+            ...targetJob,
+            status: newStatus,
+            updatedAt,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('ステータスの保存に失敗しました');
+      }
+    } catch (err) {
+      console.error('ステータス更新エラー:', err);
+      const reverted = [...jobs];
+      reverted[index] = { ...targetJob, status: prevStatus };
+      setJobs(reverted);
+      alert('公開ステータスの保存に失敗しました。通信状況をご確認ください。');
+    }
   };
 
   const handleDeleteJob = async (id: string) => {

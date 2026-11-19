@@ -31,16 +31,32 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isLoginPage = pathname === '/login';
 
   return (
-    <>
+    <div style={{ minHeight: '100vh', width: '100%', maxWidth: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       {!isLoginPage && (
-        <div style={{ position: 'sticky', top: 0, zIndex: 100, width: '100%' }}>
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
           <Header />
           <NavigationBar />
         </div>
       )}
-      <main className="flex-1">
+      <main
+        className="flex-1"
+        style={{
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
+        }}
+      >
         {children}
       </main>
-    </>
+    </div>
   );
 }

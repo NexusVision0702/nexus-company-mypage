@@ -21,6 +21,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
+    const statusParam = searchParams.get('status');
+    const publishedOnly = searchParams.get('publishedOnly') === 'true';
 
     const scanCommand = new ScanCommand({
       TableName: tableName,
@@ -29,44 +31,71 @@ export async function GET(request: Request) {
     const result = await dynamo.send(scanCommand);
     const items = result.Items || [];
 
-    const filteredJobs = companyId 
-      ? items.filter((item: any) => item.companyId === companyId)
-      : items;
+    const filteredJobs = items.filter((item: any) => {
+      const matchesCompany = companyId ? item.companyId === companyId : true;
+      const currentStatus = item.status || '公開中';
 
-    const jobs = filteredJobs.map((item: any) => {
-      const rawLocationName = item.selectedPostingLocation || '本社';
-      const match = rawLocationName.match(/\((.*?)\)/);
-      const extractedAddress = match ? match[1] : '';
-      const cleanName = rawLocationName.replace(/\s*\(.*?\)/g, '');
-
-      const fullAddress = extractedAddress || 
-        `${item.prefAndCity || ''}${item.streetNumber || ''}${item.buildingName || ''}` || 
-        '住所未登録';
-
-      return {
-        ...item,
-        id: item.jobId,
-        title: item.title || '（タイトルなし）',
-        employmentType: item.employmentType || '正社員',
-        salary: item.salaryUnit ? `${item.salaryUnit} ${item.salaryFixed || `${item.salaryMin}〜${item.salaryMax}`}` : (item.salary || '給与応相談'),
-        location: item.prefAndCity ? `${item.prefAndCity}${item.streetNumber || ''}` : (item.location || '住所未登録'),
-        plan: item.plan || 'スタンダードプラン',
-        duration: item.duration || '3ヶ月',
-        createdAt: item.createdAt || '',
-        startDate: item.startDate || '2026-01-01',
-        endDate: item.endDate || '2026-04-01',
-        listPvCount: item.listPvCount || 0,
-        detailPvCount: item.detailPvCount || 0,
-        applicantCount: item.applicantCount || 0,
-        status: item.status || '公開中',
-        postingLocationInfo: {
-          name: cleanName,
-          address: fullAddress,
-        }
-      };
+      if (publishedOnly) {
+        return matchesCompany && currentStatus === '公開中';
+      }
+      if (statusParam && statusParam !== 'すべて') {
+        return matchesCompany && currentStatus === statusParam;
+      }
+      return matchesCompany;
     });
 
-    return NextResponse.json({ success: true, jobs });
+    const jobs = filteredJobs
+      .map((item: any) => {
+        const rawLocationName = item.selectedPostingLocation || '本社';
+        const match = rawLocationName.match(/\((.*?)\)/);
+        const extractedAddress = match ? match[1] : '';
+        const cleanName = rawLocationName.replace(/\s*\(.*?\)/g, '');
+
+        const fullAddress = extractedAddress ||
+          `${item.prefAndCity || ''}${item.streetNumber || ''}${item.buildingName || ''}` ||
+          '住所未登録';
+
+        return {
+          ...item,
+          id: item.jobId,
+          title: item.title || '（タイトルなし）',
+          employmentType: item.employmentType || '正社員',
+          salary: item.salaryUnit
+            ? `${item.salaryUnit} ${item.salaryFixed || `${item.salaryMin}〜${item.salaryMax}`}`
+            : (item.salary || '給与応相談'),
+          location: item.prefAndCity
+            ? `${item.prefAndCity}${item.streetNumber || ''}`
+            : (item.location || '住所未登録'),
+          plan: item.plan || 'スタンダードプラン',
+          duration: item.duration || '3ヶ月',
+          createdAt: item.createdAt || '',
+          updatedAt: item.updatedAt || '',
+          startDate: item.startDate || '2026-01-01',
+          endDate: item.endDate || '2026-04-01',
+          listPvCount: item.listPvCount || 0,
+          detailPvCount: item.detailPvCount || 0,
+          applicantCount: item.applicantCount || 0,
+          status: item.status || '公開中',
+          postingLocationInfo: {
+            name: cleanName,
+            address: fullAddress,
+          },
+        };
+      })
+      .sort((a: any, b: any) => {
+        const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+    return NextResponse.json(
+      { success: true, jobs },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('求人取得エラー:', error);
     return NextResponse.json({ error: true, message: error.message }, { status: 500 });
@@ -85,16 +114,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: true, message: '企業IDがありません。' }, { status: 400 });
     }
 
+    const now = new Date().toISOString();
     const jobId = 'job_' + Date.now();
     const item = {
       jobId: jobId,
       companyId: companyId,
       ...jobData,
-      status: '公開中',
+      status: jobData?.status || '公開中',
       listPvCount: 0,
       detailPvCount: 0,
       applicantCount: 0,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
 
     const putCommand = new PutCommand({
@@ -116,7 +147,7 @@ export async function POST(request: Request) {
 }
 
 // ==========================================
-// 2.5. 既存求人の上書き保存 (PUT) ★ 追加
+// 2.5. 既存求人の上書き保存 (PUT)
 // ==========================================
 export async function PUT(request: Request) {
   try {
@@ -127,7 +158,6 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: true, message: '企業IDまたは求人IDがありません。' }, { status: 400 });
     }
 
-    // 既存のデータを上書き保存（既存のPV数などはそのまま維持したい場合はスキャンしてマージも可能ですが、Putで更新します）
     const item = {
       jobId: jobId,
       companyId: companyId,

@@ -16,7 +16,7 @@ interface ExtendedStoreLocation extends StoreLocation {
   addressLine?: string;
   managerName?: string;
   phone?: string;
-  contactEmail?: string; // 👈 【新規追加】店舗ごとの連絡先メールアドレス
+  contactEmail?: string;
   employeeRegular?: string;
   employeePart?: string;
   businessDays?: string[];
@@ -85,7 +85,7 @@ export default function StoresPage() {
                 addressSub: st.addressLine || st.addressSub || st.address || '',
                 managerName: st.managerName || '',
                 phone: st.phone || '',
-                contactEmail: st.contactEmail || st.email || '', // 👈 DBから取得
+                contactEmail: st.contactEmail || st.email || '',
                 employeeRegular: st.employeeRegular !== undefined ? String(st.employeeRegular) : '',
                 employeePart: st.employeePart !== undefined ? String(st.employeePart) : '',
                 businessDays: Array.isArray(st.businessDays) ? st.businessDays : [],
@@ -129,14 +129,15 @@ export default function StoresPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isAnyEditing]);
 
+  // 電話番号整形（最大11桁まで対応）
   const handlePhoneFormat = (value: string) => {
     const rawDigits = value.replace(/[^0-9]/g, '').slice(0, 11);
-    if (rawDigits.length > 7) {
-      return `${rawDigits.slice(0, 3)}-${rawDigits.slice(3, 7)}-${rawDigits.slice(7)}`;
-    } else if (rawDigits.length > 3) {
+    if (rawDigits.length <= 3) {
+      return rawDigits;
+    } else if (rawDigits.length <= 7) {
       return `${rawDigits.slice(0, 3)}-${rawDigits.slice(3)}`;
     } else {
-      return rawDigits;
+      return `${rawDigits.slice(0, 3)}-${rawDigits.slice(3, 7)}-${rawDigits.slice(7)}`;
     }
   };
 
@@ -194,7 +195,7 @@ export default function StoresPage() {
       address: '', 
       managerName: '', 
       phone: '', 
-      contactEmail: '', // 👈 新規追加
+      contactEmail: '',
       email: '', 
       newEmail: '', 
       employeeRegular: '',
@@ -293,7 +294,7 @@ export default function StoresPage() {
         addressLine: st.addressSub || st.addressLine || '',
         managerName: st.managerName || '',
         phone: st.phone || '',
-        contactEmail: st.contactEmail || '', // 👈 保存処理に含める
+        contactEmail: st.contactEmail || '',
         email: st.newEmail || st.email || '',
         employeeRegular: st.employeeRegular || '0',
         employeePart: st.employeePart || '0',
@@ -640,11 +641,10 @@ export default function StoresPage() {
                         </div>
                         <div>
                           <div style={{ fontSize: '11.5px', color: '#166534', fontWeight: 'bold', marginBottom: '4px' }}>電話番号</div>
-                          <input type="text" value={store.phone || ''} onChange={e => handleStoreChange(sIdx, 'phone', e.target.value)} placeholder="例: 店舗電話番号または代表電話番号" disabled={!isStoreActiveEdit} style={getFieldStyle(isStoreActiveEdit)} />
+                          <input type="text" value={store.phone || ''} onChange={e => handleStoreChange(sIdx, 'phone', e.target.value)} placeholder="例: 080-1234-5678" disabled={!isStoreActiveEdit} style={getFieldStyle(isStoreActiveEdit)} />
                         </div>
                       </div>
 
-                      {/* 👇 【新規追加】ご希望の赤線位置（責任者名・電話番号の下）に配置した連絡先メールアドレス入力欄 */}
                       <div>
                         <div style={{ fontSize: '11.5px', color: '#166534', fontWeight: 'bold', marginBottom: '4px' }}>連絡先メールアドレス</div>
                         <input type="email" value={store.contactEmail || ''} onChange={e => handleStoreChange(sIdx, 'contactEmail', e.target.value)} placeholder="例: info@example.com" disabled={!isStoreActiveEdit} style={getFieldStyle(isStoreActiveEdit)} />
