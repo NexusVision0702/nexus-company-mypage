@@ -23,6 +23,10 @@ const tableName = 'NexusJobPostings';
 const companyTableName =
   process.env.MY_DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
 
+// 企業データの短時間メモリキャッシュ（30秒）
+const COMPANY_CACHE_TTL_MS = 30_000;
+const companyCache = new Map<string, { data: any; expiresAt: number }>();
+
 function buildFullAddress(obj: any): string {
   if (!obj || typeof obj !== 'object') return '';
 
@@ -137,29 +141,47 @@ function buildPostingLocationInfo(item: any, company: any) {
 
 async function fetchCompaniesMap(companyIds: string[]) {
   const map = new Map<string, any>();
+  const now = Date.now();
+  const missingIds: string[] = [];
+
   const uniqueIds = Array.from(
     new Set(
       companyIds.filter((id) => typeof id === 'string' && id.trim() !== '')
     )
   );
 
-  await Promise.all(
-    uniqueIds.map(async (id) => {
-      try {
-        const res = await dynamo.send(
-          new GetCommand({
-            TableName: companyTableName,
-            Key: { id },
-          })
-        );
-        if (res.Item) {
-          map.set(id, res.Item);
+  for (const id of uniqueIds) {
+    const cached = companyCache.get(id);
+    if (cached && cached.expiresAt > now) {
+      map.set(id, cached.data);
+    } else {
+      missingIds.push(id);
+    }
+  }
+
+  if (missingIds.length > 0) {
+    await Promise.all(
+      missingIds.map(async (id) => {
+        try {
+          const res = await dynamo.send(
+            new GetCommand({
+              TableName: companyTableName,
+              Key: { id },
+            })
+          );
+          if (res.Item) {
+            companyCache.set(id, {
+              data: res.Item,
+              expiresAt: Date.now() + COMPANY_CACHE_TTL_MS,
+            });
+            map.set(id, res.Item);
+          }
+        } catch (err) {
+          console.error(`企業データ取得エラー (companyId=${id}):`, err);
         }
-      } catch (err) {
-        console.error(`企業データ取得エラー (companyId=${id}):`, err);
-      }
-    })
-  );
+      })
+    );
+  }
 
   return map;
 }
@@ -207,6 +229,11 @@ export async function GET(request: Request) {
           ...item,
           id: item.jobId,
           title: item.title || '（タイトルなし）',
+          companyName:
+            (typeof company?.companyName === 'string' &&
+              company.companyName.trim()) ||
+            item.companyName ||
+            postingLocationInfo.name,
           employmentType: item.employmentType || '正社員',
           salary: item.salaryUnit
             ? `${item.salaryUnit} ${item.salaryFixed || `${item.salaryMin}〜${item.salaryMax}`}`
@@ -259,6 +286,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: true, message: '企業IDがありません。' }, { status: 400 });
     }
 
+    companyCache.delete(companyId);
+
     const now = new Date().toISOString();
     const jobId = 'job_' + Date.now();
     const item = {
@@ -302,6 +331,8 @@ export async function PUT(request: Request) {
     if (!companyId || !jobId) {
       return NextResponse.json({ error: true, message: '企業IDまたは求人IDがありません。' }, { status: 400 });
     }
+
+    companyCache.delete(companyId);
 
     const item = {
       jobId: jobId,
