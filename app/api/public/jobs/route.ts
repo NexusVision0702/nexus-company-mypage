@@ -19,26 +19,39 @@ const companyTableName =
 
 function buildFullAddress(obj: any): string {
   if (!obj || typeof obj !== 'object') return '';
-  const parts = [
-    obj.prefecture,
-    obj.city,
+
+  const prefCity = [obj.prefecture, obj.city]
+    .filter((v: any) => typeof v === 'string' && v.trim() !== '')
+    .map((v: string) => v.trim())
+    .join('');
+
+  const detailCandidates = [
+    obj.addressLine,
     obj.addressSub,
     obj.streetNumber,
     obj.addressDetail,
+    obj.addressLine2,
     obj.buildingName,
     obj.building,
   ]
     .filter((v: any) => typeof v === 'string' && v.trim() !== '')
     .map((v: string) => v.trim());
 
-  const combined = parts.join('');
-  if (typeof obj.address === 'string' && obj.address.trim() !== '') {
-    const rawAddr = obj.address.trim();
-    return combined.length > rawAddr.length && combined.startsWith(rawAddr)
-      ? combined
-      : rawAddr;
+  const uniqueDetails = detailCandidates.filter(
+    (v, idx, arr) => arr.indexOf(v) === idx
+  );
+  const detailStr = uniqueDetails.join('');
+
+  if (prefCity) {
+    return `${prefCity}${detailStr}`;
   }
-  return combined;
+
+  const rawAddress =
+    typeof obj.address === 'string' ? obj.address.trim() : '';
+  if (rawAddress && detailStr && !rawAddress.includes(detailStr)) {
+    return `${rawAddress}${detailStr}`;
+  }
+  return rawAddress || detailStr;
 }
 
 function resolvePostingLocationInfo(job: any, company: any) {

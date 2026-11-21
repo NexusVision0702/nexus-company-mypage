@@ -13,13 +13,59 @@ import Section6CompanyCulture from './components/Section6CompanyCulture';
 const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const minutes = ['00', '15', '30', '45'];
 
+function buildFullLocationAddress(target: any): string {
+  if (!target || typeof target !== 'object') return '';
+
+  const prefCity = [target.prefecture, target.city]
+    .filter((v: any) => typeof v === 'string' && v.trim() !== '')
+    .map((v: string) => v.trim())
+    .join('');
+
+  const detailCandidates = [
+    target.addressLine,
+    target.addressSub,
+    target.streetNumber,
+    target.addressDetail,
+    target.addressLine2,
+    target.buildingName,
+    target.building,
+  ]
+    .filter((v: any) => typeof v === 'string' && v.trim() !== '')
+    .map((v: string) => v.trim());
+
+  const uniqueDetails = detailCandidates.filter(
+    (v, idx, arr) => arr.indexOf(v) === idx
+  );
+  const detailStr = uniqueDetails.join('');
+
+  if (prefCity) {
+    return `${prefCity}${detailStr}`;
+  }
+
+  const rawAddress =
+    typeof target.address === 'string' ? target.address.trim() : '';
+  if (rawAddress && detailStr && !rawAddress.includes(detailStr)) {
+    return `${rawAddress}${detailStr}`;
+  }
+  return rawAddress || detailStr;
+}
+
 export default function NewJobPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [editJobId, setEditJobId] = useState<string | null>(null);
-  
+
   // 企業データ（本社・店舗詳細情報を含む）
   const [companyProfile, setCompanyProfile] = useState<any>(null);
-  const [availableLocations, setAvailableLocations] = useState<{ id: string; name: string; address: string; phone: string; employees: string; hours: string }[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<
+    {
+      id: string;
+      name: string;
+      address: string;
+      phone: string;
+      employees: string;
+      hours: string;
+    }[]
+  >([]);
   const [selectedPostingLocation, setSelectedPostingLocation] = useState('本社');
 
   // 1. 基本情報
@@ -96,7 +142,8 @@ export default function NewJobPage() {
       if (parts.length === 2) return parts.pop()?.split(';').shift();
     };
 
-    const id = getCookie('nexus_company_id') || localStorage.getItem('nexus_company_id');
+    const id =
+      getCookie('nexus_company_id') || localStorage.getItem('nexus_company_id');
     if (!id) {
       window.location.href = '/login';
       return;
@@ -119,7 +166,7 @@ export default function NewJobPage() {
             setCompanyProfile(comp);
 
             const branchLabel = comp.branchType || '本社';
-            const fullAddress = `${comp.prefecture || ''}${comp.city || ''}${comp.addressSub || ''}`;
+            const fullAddress = buildFullLocationAddress(comp);
 
             const locations = [
               {
@@ -127,15 +174,18 @@ export default function NewJobPage() {
                 name: branchLabel,
                 address: fullAddress,
                 phone: comp.businessPhone || comp.phone || '未登録',
-                employees: comp.employeeRegular ? `${comp.employeeRegular}名` : '非公開',
-                hours: '9:00 〜 18:00'
-              }
+                employees: comp.employeeRegular
+                  ? `${comp.employeeRegular}名`
+                  : '非公開',
+                hours: '9:00 〜 18:00',
+              },
             ];
 
             if (Array.isArray(comp.stores)) {
               comp.stores.forEach((store: any, idx: number) => {
-                const storeAddr = store.address || `${store.prefecture || ''}${store.city || ''}${store.addressSub || ''}`;
-                const baseStoreName = store.name || `${comp.companyName || '店舗'} ${idx + 1}`;
+                const storeAddr = buildFullLocationAddress(store);
+                const baseStoreName =
+                  store.name || `${comp.companyName || '店舗'} ${idx + 1}`;
 
                 locations.push({
                   id: `store_${idx}`,
@@ -143,7 +193,7 @@ export default function NewJobPage() {
                   address: storeAddr,
                   phone: store.phone || comp.businessPhone || '未登録',
                   employees: store.employees || '非公開',
-                  hours: store.hours || '9:00 〜 18:00'
+                  hours: store.hours || '9:00 〜 18:00',
                 });
               });
             }
@@ -159,7 +209,9 @@ export default function NewJobPage() {
           const jobRes = await fetch(`/api/jobs`);
           if (jobRes.ok) {
             const jobDataRes = await jobRes.json();
-            const targetJob = jobDataRes.jobs?.find((j: any) => j.id === jobIdParam);
+            const targetJob = jobDataRes.jobs?.find(
+              (j: any) => j.id === jobIdParam
+            );
             if (targetJob) {
               setSelectedJobCategories(targetJob.selectedJobCategories || []);
               setTitle(targetJob.title || '');
@@ -200,7 +252,9 @@ export default function NewJobPage() {
               setProbationUnit(targetJob.probationUnit || '月');
               setProbationChange(targetJob.probationChange || '条件変動なし');
               setProbationChangeDetail(targetJob.probationChangeDetail || '');
-              setHolidayType(targetJob.holidayType || '完全週休2日制（土日祝）');
+              setHolidayType(
+                targetJob.holidayType || '完全週休2日制（土日祝）'
+              );
               setHolidayDetail(targetJob.holidayDetail || '');
               setTeamAtmosphere(targetJob.teamAtmosphere || '');
               setJobImages(targetJob.jobImages || []);
@@ -222,21 +276,26 @@ export default function NewJobPage() {
     fetchCompanyAndJobData();
   }, []);
 
-  const currentPostingLocationDetails = availableLocations.find(loc => loc.name === selectedPostingLocation) || availableLocations[0] || {
-    name: selectedPostingLocation || '本社',
-    address: '住所未登録',
-    phone: '未登録',
-    employees: '非公開',
-    hours: '9:00 〜 18:00'
-  };
+  const currentPostingLocationDetails =
+    availableLocations.find((loc) => loc.name === selectedPostingLocation) ||
+    availableLocations[0] || {
+      name: selectedPostingLocation || '本社',
+      address: '住所未登録',
+      phone: '未登録',
+      employees: '非公開',
+      hours: '9:00 〜 18:00',
+    };
 
-  const isFormComplete = 
+  const isFormComplete =
     selectedJobCategories.length > 0 &&
     title.trim() !== '' &&
     employmentType.trim() !== '' &&
     headcount.trim() !== '' &&
-    (salaryMode === '固定' ? salaryFixed.trim() !== '' : (salaryMin.trim() !== '' && salaryMax.trim() !== '')) &&
-    (overtimePayMode === '含まない' || (overtimePayHours.trim() !== '' && overtimePayAmount.trim() !== '')) &&
+    (salaryMode === '固定'
+      ? salaryFixed.trim() !== ''
+      : salaryMin.trim() !== '' && salaryMax.trim() !== '') &&
+    (overtimePayMode === '含まない' ||
+      (overtimePayHours.trim() !== '' && overtimePayAmount.trim() !== '')) &&
     salaryDetail.trim() !== '' &&
     mission.trim() !== '' &&
     dailyWork.trim() !== '' &&
@@ -256,11 +315,11 @@ export default function NewJobPage() {
     selectedBenefits.length > 0 &&
     selectedPostingLocation.trim() !== '' &&
     selectionSteps.length > 0 &&
-    selectionSteps.every(s => s.trim() !== '');
+    selectionSteps.every((s) => s.trim() !== '');
 
   const handleJobCategoryToggle = (cat: string) => {
     if (selectedJobCategories.includes(cat)) {
-      setSelectedJobCategories(selectedJobCategories.filter(c => c !== cat));
+      setSelectedJobCategories(selectedJobCategories.filter((c) => c !== cat));
     } else {
       if (selectedJobCategories.length >= 2) {
         alert('職種は最大2つまで選択できます。');
@@ -275,7 +334,9 @@ export default function NewJobPage() {
     const cleanZip = val.replace(/[^0-9]/g, '');
     if (cleanZip.length === 7) {
       try {
-        const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${cleanZip}`);
+        const res = await fetch(
+          `https://zipcloud.ibsnet.co.jp/api/search?zipcode=${cleanZip}`
+        );
         const data = await res.json();
         if (data.results && data.results.length > 0) {
           const result = data.results[0];
@@ -288,7 +349,7 @@ export default function NewJobPage() {
 
   const handleBenefitToggle = (benefit: string) => {
     if (selectedBenefits.includes(benefit)) {
-      setSelectedBenefits(selectedBenefits.filter(b => b !== benefit));
+      setSelectedBenefits(selectedBenefits.filter((b) => b !== benefit));
     } else {
       setSelectedBenefits([...selectedBenefits, benefit]);
     }
@@ -364,7 +425,10 @@ export default function NewJobPage() {
       alert('モデル例は最大3つまで登録できます。');
       return;
     }
-    setModelSalaries([...modelSalaries, { unit: '年収', period: '入社3年目', role: '', amount: '' }]);
+    setModelSalaries([
+      ...modelSalaries,
+      { unit: '年収', period: '入社3年目', role: '', amount: '' },
+    ]);
   };
 
   const removeModelSalary = (index: number) => {
@@ -374,7 +438,12 @@ export default function NewJobPage() {
   const updateModelSalary = (index: number, field: string, value: string) => {
     const updated = [...modelSalaries];
     if (field === 'unit') {
-      const defaultPeriod = value === '時給' ? '勤務開始3ヶ月' : value === '日給' ? '稼働初日〜' : '入社1年目';
+      const defaultPeriod =
+        value === '時給'
+          ? '勤務開始3ヶ月'
+          : value === '日給'
+          ? '稼働初日〜'
+          : '入社1年目';
       updated[index] = { ...updated[index], unit: value, period: defaultPeriod };
     } else {
       updated[index] = { ...updated[index], [field]: value };
@@ -387,7 +456,10 @@ export default function NewJobPage() {
       alert('勤務時間は最大5つまで登録できます。');
       return;
     }
-    setWorkSchedules([...workSchedules, { startHour: '10', startMin: '00', endHour: '19', endMin: '00', note: '' }]);
+    setWorkSchedules([
+      ...workSchedules,
+      { startHour: '10', startMin: '00', endHour: '19', endMin: '00', note: '' },
+    ]);
   };
 
   const removeWorkSchedule = (index: number) => {
@@ -468,11 +540,20 @@ export default function NewJobPage() {
         smoking,
         selectionSteps,
         selectedPostingLocation,
+        postingLocationInfo: {
+          name: currentPostingLocationDetails.name,
+          address: currentPostingLocationDetails.address,
+          phone: currentPostingLocationDetails.phone,
+          employees: currentPostingLocationDetails.employees,
+          hours: currentPostingLocationDetails.hours,
+        },
       };
 
       const endpoint = '/api/jobs';
       const method = editJobId ? 'PUT' : 'POST';
-      const payload = editJobId ? { companyId, jobId: editJobId, jobData } : { companyId, jobData };
+      const payload = editJobId
+        ? { companyId, jobId: editJobId, jobData }
+        : { companyId, jobData };
 
       const res = await fetch(endpoint, {
         method: method,
@@ -506,7 +587,7 @@ export default function NewJobPage() {
     fontSize: '15px',
     boxSizing: 'border-box' as const,
     outline: 'none',
-    transition: 'all 0.2s ease'
+    transition: 'all 0.2s ease',
   };
 
   const disabledInputStyle = {
@@ -514,34 +595,34 @@ export default function NewJobPage() {
     background: '#f1f5f9',
     color: '#94a3b8',
     borderColor: '#e2e8f0',
-    cursor: 'not-allowed'
+    cursor: 'not-allowed',
   };
 
   const centerNumberInputStyle = {
     ...inputStyle,
     width: '90px',
     textAlign: 'center' as const,
-    padding: '14px 8px'
+    padding: '14px 8px',
   };
 
   const disabledCenterNumberInputStyle = {
     ...disabledInputStyle,
     width: '90px',
     textAlign: 'center' as const,
-    padding: '14px 8px'
+    padding: '14px 8px',
   };
 
   const stationInputStyle = {
     ...inputStyle,
     width: '240px',
-    padding: '14px 14px'
+    padding: '14px 14px',
   };
 
   const salaryAmountInputStyle = {
     ...inputStyle,
     width: '180px',
     textAlign: 'center' as const,
-    padding: '14px 16px'
+    padding: '14px 16px',
   };
 
   // ==========================================
@@ -549,54 +630,151 @@ export default function NewJobPage() {
   // ==========================================
   if (publishedUrl) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-        <div style={{ background: '#ffffff', maxWidth: '600px', width: '100%', borderRadius: '24px', padding: '48px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '24px', textAlign: 'center' }}>
-          
-          <div style={{ width: '64px', height: '64px', background: '#ecfdf5', color: '#059669', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', margin: '0 auto' }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#f8fafc',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        }}
+      >
+        <div
+          style={{
+            background: '#ffffff',
+            maxWidth: '600px',
+            width: '100%',
+            borderRadius: '24px',
+            padding: '48px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              background: '#ecfdf5',
+              color: '#059669',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '32px',
+              margin: '0 auto',
+            }}
+          >
             🎉
           </div>
 
           <div>
-            <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', margin: '0 0 8px 0' }}>{editJobId ? '求人の更新が完了しました！' : '求人の公開が完了しました！'}</h2>
-            <p style={{ fontSize: '14.5px', color: '#64748b', margin: 0 }}>以下の本番用URLから、求人ページをご確認いただけます。</p>
+            <h2
+              style={{
+                fontSize: '24px',
+                fontWeight: '900',
+                color: '#0f172a',
+                margin: '0 0 8px 0',
+              }}
+            >
+              {editJobId
+                ? '求人の更新が完了しました！'
+                : '求人の公開が完了しました！'}
+            </h2>
+            <p style={{ fontSize: '14.5px', color: '#64748b', margin: 0 }}>
+              以下の本番用URLから、求人ページをご確認いただけます。
+            </p>
           </div>
 
-          <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <input 
-              type="text" 
-              readOnly 
-              value={publishedUrl} 
-              style={{ width: '100%', background: 'transparent', border: 'none', color: '#0f172a', fontSize: '13.5px', fontWeight: '700', outline: 'none' }} 
+          <div
+            style={{
+              background: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              borderRadius: '14px',
+              padding: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <input
+              type="text"
+              readOnly
+              value={publishedUrl}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                color: '#0f172a',
+                fontSize: '13.5px',
+                fontWeight: '700',
+                outline: 'none',
+              }}
             />
-            <button 
+            <button
               type="button"
               onClick={() => {
                 navigator.clipboard.writeText(publishedUrl);
                 alert('本番用URLをクリップボードにコピーしました！');
               }}
-              style={{ background: '#059669', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              style={{
+                background: '#059669',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 18px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
             >
               コピー
             </button>
           </div>
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-            <button 
+            <button
               type="button"
-              onClick={() => window.location.href = publishedUrl}
-              style={{ flex: 1, background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', padding: '14px', borderRadius: '12px', fontSize: '14px', fontWeight: '800', cursor: 'pointer' }}
+              onClick={() => (window.location.href = publishedUrl)}
+              style={{
+                flex: 1,
+                background: '#f1f5f9',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                padding: '14px',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: '800',
+                cursor: 'pointer',
+              }}
             >
               公開ページを確認する ↗
             </button>
-            <button 
+            <button
               type="button"
-              onClick={() => window.location.href = '/dashboard/jobs'}
-              style={{ flex: 1, background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#ffffff', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '14px', fontWeight: '800', cursor: 'pointer' }}
+              onClick={() => (window.location.href = '/dashboard/jobs')}
+              style={{
+                flex: 1,
+                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '14px',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: '800',
+                cursor: 'pointer',
+              }}
             >
               求人一覧に戻る
             </button>
           </div>
-
         </div>
       </div>
     );
@@ -607,196 +785,795 @@ export default function NewJobPage() {
   // ==========================================
   if (isPreviewMode) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#f8fafc', color: '#1e293b', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        
-        <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          background: '#f8fafc',
+          color: '#1e293b',
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            background: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '16px 40px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ background: '#059669', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '5px 14px', borderRadius: '20px', letterSpacing: '0.05em' }}>
+            <span
+              style={{
+                background: '#059669',
+                color: '#fff',
+                fontSize: '11px',
+                fontWeight: '800',
+                padding: '5px 14px',
+                borderRadius: '20px',
+                letterSpacing: '0.05em',
+              }}
+            >
               求人プレビュー
             </span>
-            <div style={{ background: '#f1f5f9', padding: '4px', borderRadius: '10px', display: 'flex', gap: '4px', border: '1px solid #cbd5e1' }}>
+            <div
+              style={{
+                background: '#f1f5f9',
+                padding: '4px',
+                borderRadius: '10px',
+                display: 'flex',
+                gap: '4px',
+                border: '1px solid #cbd5e1',
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setIsMobileFrame(false)}
-                style={{ background: !isMobileFrame ? '#059669' : 'transparent', color: !isMobileFrame ? '#fff' : '#475569', border: 'none', padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{
+                  background: !isMobileFrame ? '#059669' : 'transparent',
+                  color: !isMobileFrame ? '#fff' : '#475569',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
               >
                 💻 PC表示
               </button>
               <button
                 type="button"
                 onClick={() => setIsMobileFrame(true)}
-                style={{ background: isMobileFrame ? '#059669' : 'transparent', color: isMobileFrame ? '#fff' : '#475569', border: 'none', padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{
+                  background: isMobileFrame ? '#059669' : 'transparent',
+                  color: isMobileFrame ? '#fff' : '#475569',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
               >
                 📱 スマホ表示
               </button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setIsPreviewMode(false)}
-              style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '10px 20px', borderRadius: '10px', fontSize: '13.5px', fontWeight: '700', cursor: 'pointer' }}
+              style={{
+                background: '#f1f5f9',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                padding: '10px 20px',
+                borderRadius: '10px',
+                fontSize: '13.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
             >
               ← 編集画面に戻る
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               disabled={loading}
               onClick={handleConfirmPublish}
-              style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#ffffff', border: 'none', padding: '10px 28px', borderRadius: '10px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 15px rgba(5, 150, 105, 0.3)' }}
+              style={{
+                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '10px 28px',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(5, 150, 105, 0.3)',
+              }}
             >
-              {loading ? '保存中...' : (editJobId ? 'この内容で更新する' : 'この内容で公開する')}
+              {loading
+                ? '保存中...'
+                : editJobId
+                ? 'この内容で更新する'
+                : 'この内容で公開する'}
             </button>
           </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '40px 20px' }}>
-          <div style={{ 
-            maxWidth: isMobileFrame ? '410px' : '900px', 
-            margin: '0 auto', 
-            padding: isMobileFrame ? '20px 10px' : '0 20px', 
-            background: isMobileFrame ? '#0f172a' : 'transparent',
-            borderRadius: isMobileFrame ? '40px' : '0',
-            boxShadow: isMobileFrame ? '0 25px 50px -12px rgba(0,0,0,0.5)' : 'none',
-            border: isMobileFrame ? '10px solid #334155' : 'none',
-            height: isMobileFrame ? '740px' : 'auto',
-            maxHeight: isMobileFrame ? '740px' : 'none',
-            overflowY: isMobileFrame ? 'auto' : 'visible',
-            transition: 'all 0.3s ease'
-          }}>
-            
-            <div style={{ 
-              background: isMobileFrame ? '#f8fafc' : 'transparent', 
-              borderRadius: isMobileFrame ? '24px' : '0', 
-              overflow: 'visible',
-              padding: isMobileFrame ? '16px' : '0',
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: isMobileFrame ? '20px' : '32px' 
-            }}>
-              
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div
+            style={{
+              maxWidth: isMobileFrame ? '410px' : '900px',
+              margin: '0 auto',
+              padding: isMobileFrame ? '20px 10px' : '0 20px',
+              background: isMobileFrame ? '#0f172a' : 'transparent',
+              borderRadius: isMobileFrame ? '40px' : '0',
+              boxShadow: isMobileFrame
+                ? '0 25px 50px -12px rgba(0,0,0,0.5)'
+                : 'none',
+              border: isMobileFrame ? '10px solid #334155' : 'none',
+              height: isMobileFrame ? '740px' : 'auto',
+              maxHeight: isMobileFrame ? '740px' : 'none',
+              overflowY: isMobileFrame ? 'auto' : 'visible',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <div
+              style={{
+                background: isMobileFrame ? '#f8fafc' : 'transparent',
+                borderRadius: isMobileFrame ? '24px' : '0',
+                overflow: 'visible',
+                padding: isMobileFrame ? '16px' : '0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: isMobileFrame ? '20px' : '32px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                }}
+              >
                 {selectedJobCategories.map((cat, i) => (
-                  <span key={i} style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '5px 12px', borderRadius: '8px', fontSize: isMobileFrame ? '11.5px' : '13px', fontWeight: '800', whiteSpace: 'nowrap' }}>
+                  <span
+                    key={i}
+                    style={{
+                      background: '#ecfdf5',
+                      color: '#047857',
+                      border: '1px solid #a7f3d0',
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      fontSize: isMobileFrame ? '11.5px' : '13px',
+                      fontWeight: '800',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                     {cat}
                   </span>
                 ))}
-                <span style={{ background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', padding: '5px 12px', borderRadius: '8px', fontSize: isMobileFrame ? '11.5px' : '13px', fontWeight: '800', whiteSpace: 'nowrap' }}>
+                <span
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#334155',
+                    border: '1px solid #cbd5e1',
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    fontSize: isMobileFrame ? '11.5px' : '13px',
+                    fontWeight: '800',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {employmentType}
                 </span>
               </div>
 
-              <h1 style={{ fontSize: isMobileFrame ? '22px' : '34px', fontWeight: '900', lineHeight: '1.35', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+              <h1
+                style={{
+                  fontSize: isMobileFrame ? '22px' : '34px',
+                  fontWeight: '900',
+                  lineHeight: '1.35',
+                  color: '#0f172a',
+                  margin: 0,
+                  letterSpacing: '-0.02em',
+                }}
+              >
                 {title || '（求人タイトル未入力）'}
               </h1>
 
-              <div style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', border: '2px solid #059669', borderRadius: '20px', padding: isMobileFrame ? '20px' : '32px 40px', display: 'flex', flexDirection: isMobileFrame ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobileFrame ? 'flex-start' : 'center', gap: '16px', boxShadow: '0 15px 35px rgba(5, 150, 105, 0.12)' }}>
+              <div
+                style={{
+                  background:
+                    'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
+                  border: '2px solid #059669',
+                  borderRadius: '20px',
+                  padding: isMobileFrame ? '20px' : '32px 40px',
+                  display: 'flex',
+                  flexDirection: isMobileFrame ? 'column' : 'row',
+                  justifyContent: 'space-between',
+                  alignItems: isMobileFrame ? 'flex-start' : 'center',
+                  gap: '16px',
+                  boxShadow: '0 15px 35px rgba(5, 150, 105, 0.12)',
+                }}
+              >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                    <span style={{ background: '#059669', color: '#fff', fontSize: '10px', fontWeight: '900', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>POINT 01</span>
-                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#059669', letterSpacing: '0.05em' }}>想定給与 / 報酬</span>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: '#059669',
+                        color: '#fff',
+                        fontSize: '10px',
+                        fontWeight: '900',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      POINT 01
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        color: '#059669',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      想定給与 / 報酬
+                    </span>
                   </div>
-                  <span style={{ fontSize: isMobileFrame ? '22px' : '30px', fontWeight: '900', color: '#0f172a' }}>
-                    {salaryUnit} {salaryMode === '固定' ? (salaryFixed ? Number(salaryFixed).toLocaleString() + '円' : '未設定') : (salaryMin && salaryMax ? `${Number(salaryMin).toLocaleString()}円 〜 ${Number(salaryMax).toLocaleString()}円` : '未設定')}
+                  <span
+                    style={{
+                      fontSize: isMobileFrame ? '22px' : '30px',
+                      fontWeight: '900',
+                      color: '#0f172a',
+                    }}
+                  >
+                    {salaryUnit}{' '}
+                    {salaryMode === '固定'
+                      ? salaryFixed
+                        ? Number(salaryFixed).toLocaleString() + '円'
+                        : '未設定'
+                      : salaryMin && salaryMax
+                      ? `${Number(salaryMin).toLocaleString()}円 〜 ${Number(
+                          salaryMax
+                        ).toLocaleString()}円`
+                      : '未設定'}
                   </span>
-                  {salaryDetail && <p style={{ margin: '6px 0 0 0', fontSize: isMobileFrame ? '12px' : '13px', color: '#475569' }}>{salaryDetail}</p>}
+                  {salaryDetail && (
+                    <p
+                      style={{
+                        margin: '6px 0 0 0',
+                        fontSize: isMobileFrame ? '12px' : '13px',
+                        color: '#475569',
+                      }}
+                    >
+                      {salaryDetail}
+                    </p>
+                  )}
                 </div>
-                <div style={{ borderLeft: isMobileFrame ? 'none' : '2px solid #a7f3d0', paddingLeft: isMobileFrame ? '0' : '32px', paddingTop: isMobileFrame ? '10px' : '0', borderTop: isMobileFrame ? '1px solid #e2e8f0' : 'none', width: '100%' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>募集人数</span>
-                  <span style={{ fontSize: isMobileFrame ? '15px' : '18px', fontWeight: '900', color: '#0f172a' }}>{headcount || '未設定'}</span>
+                <div
+                  style={{
+                    borderLeft: isMobileFrame ? 'none' : '2px solid #a7f3d0',
+                    paddingLeft: isMobileFrame ? '0' : '32px',
+                    paddingTop: isMobileFrame ? '10px' : '0',
+                    borderTop: isMobileFrame ? '1px solid #e2e8f0' : 'none',
+                    width: '100%',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: '800',
+                      color: '#64748b',
+                      display: 'block',
+                      marginBottom: '4px',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    募集人数
+                  </span>
+                  <span
+                    style={{
+                      fontSize: isMobileFrame ? '15px' : '18px',
+                      fontWeight: '900',
+                      color: '#0f172a',
+                    }}
+                  >
+                    {headcount || '未設定'}
+                  </span>
                 </div>
               </div>
 
               {jobImages.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <h3 style={{ fontSize: isMobileFrame ? '15px' : '18px', fontWeight: '900', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '6px', height: '16px', background: '#059669', borderRadius: '3px', display: 'inline-block' }}></span>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontSize: isMobileFrame ? '15px' : '18px',
+                      fontWeight: '900',
+                      color: '#0f172a',
+                      margin: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '16px',
+                        background: '#059669',
+                        borderRadius: '3px',
+                        display: 'inline-block',
+                      }}
+                    ></span>
                     職場の雰囲気・チームメンバー
                   </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobileFrame ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobileFrame
+                        ? '1fr'
+                        : 'repeat(auto-fill, minmax(240px, 1fr))',
+                      gap: '12px',
+                    }}
+                  >
                     {jobImages.map((img, idx) => (
-                      <div key={idx} style={{ borderRadius: '16px', overflow: 'hidden', height: isMobileFrame ? '180px' : '240px', border: '1px solid #e2e8f0', background: '#ffffff', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
-                        <img src={img} alt={`職場の様子 ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div
+                        key={idx}
+                        style={{
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          height: isMobileFrame ? '180px' : '240px',
+                          border: '1px solid #e2e8f0',
+                          background: '#ffffff',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+                        }}
+                      >
+                        <img
+                          src={img}
+                          alt={`職場の様子 ${idx + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderLeft: '5px solid #059669', borderRadius: '20px', padding: isMobileFrame ? '20px' : '38px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ background: '#ecfdf5', color: '#047857', fontSize: '10.5px', fontWeight: '900', padding: '2px 8px', borderRadius: '6px' }}>POINT 02</span>
-                  <h2 style={{ fontSize: isMobileFrame ? '17px' : '21px', fontWeight: '900', color: '#0f172a', margin: 0 }}>
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderLeft: '5px solid #059669',
+                  borderRadius: '20px',
+                  padding: isMobileFrame ? '20px' : '38px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                }}
+              >
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <span
+                    style={{
+                      background: '#ecfdf5',
+                      color: '#047857',
+                      fontSize: '10.5px',
+                      fontWeight: '900',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    POINT 02
+                  </span>
+                  <h2
+                    style={{
+                      fontSize: isMobileFrame ? '17px' : '21px',
+                      fontWeight: '900',
+                      color: '#0f172a',
+                      margin: 0,
+                    }}
+                  >
                     私たちが目指すミッション・仕事内容
                   </h2>
                 </div>
-                <p style={{ fontSize: isMobileFrame ? '13.5px' : '15.5px', lineHeight: '1.85', color: '#334155', whiteSpace: 'pre-wrap', margin: 0 }}>
+                <p
+                  style={{
+                    fontSize: isMobileFrame ? '13.5px' : '15.5px',
+                    lineHeight: '1.85',
+                    color: '#334155',
+                    whiteSpace: 'pre-wrap',
+                    margin: 0,
+                  }}
+                >
                   {mission || '（ミッション未入力）'}
                 </p>
                 {dailyWork && (
-                  <div style={{ marginTop: '10px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                    <strong style={{ display: 'block', color: '#0f172a', marginBottom: '6px', fontSize: '13.5px', fontWeight: '800' }}>📌 日々の具体的な業務例</strong>
-                    <p style={{ margin: 0, color: '#475569', fontSize: '13.5px', whiteSpace: 'pre-wrap', lineHeight: '1.7' }}>{dailyWork}</p>
+                  <div
+                    style={{
+                      marginTop: '10px',
+                      background: '#f8fafc',
+                      padding: '16px',
+                      borderRadius: '14px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <strong
+                      style={{
+                        display: 'block',
+                        color: '#0f172a',
+                        marginBottom: '6px',
+                        fontSize: '13.5px',
+                        fontWeight: '800',
+                      }}
+                    >
+                      📌 日々の具体的な業務例
+                    </strong>
+                    <p
+                      style={{
+                        margin: 0,
+                        color: '#475569',
+                        fontSize: '13.5px',
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: '1.7',
+                      }}
+                    >
+                      {dailyWork}
+                    </p>
                   </div>
                 )}
               </div>
 
               {teamAtmosphere && (
-                <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderLeft: '5px solid #3b82f6', borderRadius: '20px', padding: isMobileFrame ? '20px' : '38px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ background: '#eff6ff', color: '#1d4ed8', fontSize: '10.5px', fontWeight: '900', padding: '2px 8px', borderRadius: '6px' }}>CULTURE</span>
-                    <h2 style={{ fontSize: isMobileFrame ? '17px' : '21px', fontWeight: '900', color: '#0f172a', margin: 0 }}>
+                <div
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderLeft: '5px solid #3b82f6',
+                    borderRadius: '20px',
+                    padding: isMobileFrame ? '20px' : '38px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: '#eff6ff',
+                        color: '#1d4ed8',
+                        fontSize: '10.5px',
+                        fontWeight: '900',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      CULTURE
+                    </span>
+                    <h2
+                      style={{
+                        fontSize: isMobileFrame ? '17px' : '21px',
+                        fontWeight: '900',
+                        color: '#0f172a',
+                        margin: 0,
+                      }}
+                    >
                       チームの雰囲気・社風
                     </h2>
                   </div>
-                  <p style={{ fontSize: isMobileFrame ? '13.5px' : '15.5px', lineHeight: '1.85', color: '#334155', whiteSpace: 'pre-wrap', margin: 0 }}>{teamAtmosphere}</p>
+                  <p
+                    style={{
+                      fontSize: isMobileFrame ? '13.5px' : '15.5px',
+                      lineHeight: '1.85',
+                      color: '#334155',
+                      whiteSpace: 'pre-wrap',
+                      margin: 0,
+                    }}
+                  >
+                    {teamAtmosphere}
+                  </p>
                 </div>
               )}
 
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: isMobileFrame ? '20px' : '38px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
-                <h2 style={{ fontSize: isMobileFrame ? '17px' : '21px', fontWeight: '900', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '6px', height: '18px', background: '#059669', borderRadius: '3px', display: 'inline-block' }}></span>
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '20px',
+                  padding: isMobileFrame ? '20px' : '38px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                }}
+              >
+                <h2
+                  style={{
+                    fontSize: isMobileFrame ? '17px' : '21px',
+                    fontWeight: '900',
+                    color: '#0f172a',
+                    margin: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '18px',
+                      background: '#059669',
+                      borderRadius: '3px',
+                      display: 'inline-block',
+                    }}
+                  ></span>
                   応募要件
                 </h2>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '900', color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '3px 10px', borderRadius: '6px', width: 'fit-content' }}>必須要件（MUST）</span>
-                  <p style={{ margin: 0, fontSize: isMobileFrame ? '13.5px' : '15px', lineHeight: '1.8', color: '#334155', whiteSpace: 'pre-wrap' }}>{mustRequirements || '（必須要件未入力）'}</p>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    background: '#f8fafc',
+                    padding: '16px',
+                    borderRadius: '14px',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: '900',
+                      color: '#047857',
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      width: 'fit-content',
+                    }}
+                  >
+                    必須要件（MUST）
+                  </span>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: isMobileFrame ? '13.5px' : '15px',
+                      lineHeight: '1.8',
+                      color: '#334155',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {mustRequirements || '（必須要件未入力）'}
+                  </p>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '900', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '3px 10px', borderRadius: '6px', width: 'fit-content' }}>歓迎要件（WANT）</span>
-                  <p style={{ margin: 0, fontSize: isMobileFrame ? '13.5px' : '15px', lineHeight: '1.8', color: '#334155', whiteSpace: 'pre-wrap' }}>{wantRequirements || '（歓迎要件未入力）'}</p>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    background: '#f8fafc',
+                    padding: '16px',
+                    borderRadius: '14px',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: '900',
+                      color: '#1d4ed8',
+                      background: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      width: 'fit-content',
+                    }}
+                  >
+                    歓迎要件（WANT）
+                  </span>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: isMobileFrame ? '13.5px' : '15px',
+                      lineHeight: '1.8',
+                      color: '#334155',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {wantRequirements || '（歓迎要件未入力）'}
+                  </p>
                 </div>
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: isMobileFrame ? '20px' : '38px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
-                <h2 style={{ fontSize: isMobileFrame ? '17px' : '21px', fontWeight: '900', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '6px', height: '18px', background: '#059669', borderRadius: '3px', display: 'inline-block' }}></span>
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '20px',
+                  padding: isMobileFrame ? '20px' : '38px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                }}
+              >
+                <h2
+                  style={{
+                    fontSize: isMobileFrame ? '17px' : '21px',
+                    fontWeight: '900',
+                    color: '#0f172a',
+                    margin: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '18px',
+                      background: '#059669',
+                      borderRadius: '3px',
+                      display: 'inline-block',
+                    }}
+                  ></span>
                   勤務地・働く環境
                 </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-                  <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: '800' }}>勤務地</span>
-                    <span style={{ fontSize: '14px', fontWeight: '900', color: '#0f172a' }}>{prefAndCity} {streetNumber}</span>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr',
+                    gap: '12px',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      padding: '16px',
+                      borderRadius: '14px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color: '#64748b',
+                        display: 'block',
+                        marginBottom: '4px',
+                        fontWeight: '800',
+                      }}
+                    >
+                      勤務地
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: '900',
+                        color: '#0f172a',
+                      }}
+                    >
+                      {prefAndCity} {streetNumber}
+                    </span>
                   </div>
-                  <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: '800' }}>アクセス</span>
-                    <span style={{ fontSize: '14px', fontWeight: '900', color: '#0f172a' }}>{accessStation}より{accessMethod}約{accessMinutes}分</span>
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      padding: '16px',
+                      borderRadius: '14px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color: '#64748b',
+                        display: 'block',
+                        marginBottom: '4px',
+                        fontWeight: '800',
+                      }}
+                    >
+                      アクセス
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: '900',
+                        color: '#0f172a',
+                      }}
+                    >
+                      {accessStation}より{accessMethod}約{accessMinutes}分
+                    </span>
                   </div>
                 </div>
 
                 {selectedBenefits.length > 0 && (
                   <div style={{ marginTop: '6px' }}>
-                    <strong style={{ color: '#0f172a', display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '900' }}>✨ 福利厚生・手当</strong>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <strong
+                      style={{
+                        color: '#0f172a',
+                        display: 'block',
+                        marginBottom: '10px',
+                        fontSize: '14px',
+                        fontWeight: '900',
+                      }}
+                    >
+                      ✨ 福利厚生・手当
+                    </strong>
+                    <div
+                      style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}
+                    >
                       {selectedBenefits.map((b, i) => (
-                        <span key={i} style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '8px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '800' }}>
+                        <span
+                          key={i}
+                          style={{
+                            background: '#ecfdf5',
+                            border: '1px solid #a7f3d0',
+                            color: '#047857',
+                            padding: '8px 14px',
+                            borderRadius: '10px',
+                            fontSize: '13px',
+                            fontWeight: '800',
+                          }}
+                        >
                           ✓ {b}
                         </span>
                       ))}
                       {benefitsExtra && (
-                        <span style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '8px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '800' }}>
+                        <span
+                          style={{
+                            background: '#ecfdf5',
+                            border: '1px solid #a7f3d0',
+                            color: '#047857',
+                            padding: '8px 14px',
+                            borderRadius: '10px',
+                            fontSize: '13px',
+                            fontWeight: '800',
+                          }}
+                        >
                           ✓ {benefitsExtra}
                         </span>
                       )}
@@ -805,18 +1582,85 @@ export default function NewJobPage() {
                 )}
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: isMobileFrame ? '20px' : '38px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
-                <h2 style={{ fontSize: isMobileFrame ? '17px' : '21px', fontWeight: '900', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '6px', height: '18px', background: '#059669', borderRadius: '3px', display: 'inline-block' }}></span>
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '20px',
+                  padding: isMobileFrame ? '20px' : '38px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                }}
+              >
+                <h2
+                  style={{
+                    fontSize: isMobileFrame ? '17px' : '21px',
+                    fontWeight: '900',
+                    color: '#0f172a',
+                    margin: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '18px',
+                      background: '#059669',
+                      borderRadius: '3px',
+                      display: 'inline-block',
+                    }}
+                  ></span>
                   選考プロセス
                 </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}
+                >
                   {selectionSteps.map((step, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ background: '#059669', color: '#fff', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900', flexShrink: 0 }}>
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          background: '#059669',
+                          color: '#fff',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: '900',
+                          flexShrink: 0,
+                        }}
+                      >
                         {idx + 1}
                       </div>
-                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', flex: '1', fontSize: '14px', fontWeight: '900', color: '#0f172a' }}>
+                      <div
+                        style={{
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          padding: '12px 16px',
+                          flex: '1',
+                          fontSize: '14px',
+                          fontWeight: '900',
+                          color: '#0f172a',
+                        }}
+                      >
                         {step}
                       </div>
                     </div>
@@ -824,60 +1668,220 @@ export default function NewJobPage() {
                 </div>
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderLeft: '5px solid #0284c7', borderRadius: '20px', padding: isMobileFrame ? '20px' : '32px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '10.5px', fontWeight: '900', padding: '2px 8px', borderRadius: '6px' }}>COMPANY / STORE</span>
-                  <h3 style={{ fontSize: isMobileFrame ? '16px' : '19px', fontWeight: '900', color: '#0f172a', margin: 0 }}>
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderLeft: '5px solid #0284c7',
+                  borderRadius: '20px',
+                  padding: isMobileFrame ? '20px' : '32px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                }}
+              >
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <span
+                    style={{
+                      background: '#e0f2fe',
+                      color: '#0369a1',
+                      fontSize: '10.5px',
+                      fontWeight: '900',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    COMPANY / STORE
+                  </span>
+                  <h3
+                    style={{
+                      fontSize: isMobileFrame ? '16px' : '19px',
+                      fontWeight: '900',
+                      color: '#0f172a',
+                      margin: 0,
+                    }}
+                  >
                     求人掲載拠点情報
                   </h3>
                 </div>
-                
-                <p style={{ fontSize: '12px', color: '#d97706', background: '#fffbeb', border: '1px solid #fde68a', padding: '8px 12px', borderRadius: '8px', margin: 0, lineHeight: '1.5', fontWeight: '700' }}>
+
+                <p
+                  style={{
+                    fontSize: '12px',
+                    color: '#d97706',
+                    background: '#fffbeb',
+                    border: '1px solid #fde68a',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    margin: 0,
+                    lineHeight: '1.5',
+                    fontWeight: '700',
+                  }}
+                >
                   ※勤務先の情報ではありません。勤務地情報に関しては「勤務地・働く環境」になります。
                 </p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', fontSize: '13.5px' }}>
-                  <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '2px' }}>店舗名 / 本社</span>
-                    <span style={{ fontWeight: '800', color: '#0f172a' }}>{currentPostingLocationDetails.name}</span>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr',
+                    gap: '10px',
+                    fontSize: '13.5px',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        color: '#64748b',
+                        display: 'block',
+                        marginBottom: '2px',
+                      }}
+                    >
+                      店舗名 / 本社
+                    </span>
+                    <span style={{ fontWeight: '800', color: '#0f172a' }}>
+                      {currentPostingLocationDetails.name}
+                    </span>
                   </div>
-                  <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '2px' }}>住所</span>
-                    <span style={{ fontWeight: '800', color: '#0f172a' }}>{currentPostingLocationDetails.address || '未登録'}</span>
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        color: '#64748b',
+                        display: 'block',
+                        marginBottom: '2px',
+                      }}
+                    >
+                      住所
+                    </span>
+                    <span style={{ fontWeight: '800', color: '#0f172a' }}>
+                      {currentPostingLocationDetails.address || '未登録'}
+                    </span>
                   </div>
-                  <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '2px' }}>電話番号</span>
-                    <span style={{ fontWeight: '800', color: '#0f172a' }}>{currentPostingLocationDetails.phone}</span>
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        color: '#64748b',
+                        display: 'block',
+                        marginBottom: '2px',
+                      }}
+                    >
+                      電話番号
+                    </span>
+                    <span style={{ fontWeight: '800', color: '#0f172a' }}>
+                      {currentPostingLocationDetails.phone}
+                    </span>
                   </div>
-                  <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '2px' }}>従業員数 / 営業時間</span>
-                    <span style={{ fontWeight: '800', color: '#0f172a' }}>従業員数: {currentPostingLocationDetails.employees} / 営業時間: {currentPostingLocationDetails.hours}</span>
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        color: '#64748b',
+                        display: 'block',
+                        marginBottom: '2px',
+                      }}
+                    >
+                      従業員数 / 営業時間
+                    </span>
+                    <span style={{ fontWeight: '800', color: '#0f172a' }}>
+                      従業員数: {currentPostingLocationDetails.employees} /
+                      営業時間: {currentPostingLocationDetails.hours}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px', paddingBottom: '40px' }}>
-                <button 
-                  type="button" 
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  marginTop: '10px',
+                  paddingBottom: '40px',
+                }}
+              >
+                <button
+                  type="button"
                   disabled={loading}
                   onClick={handleConfirmPublish}
-                  style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#ffffff', border: 'none', padding: '16px 24px', borderRadius: '14px', fontSize: '15px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 10px 25px rgba(5, 150, 105, 0.35)', width: '100%' }}
+                  style={{
+                    background:
+                      'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '16px 24px',
+                    borderRadius: '14px',
+                    fontSize: '15px',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    boxShadow: '0 10px 25px rgba(5, 150, 105, 0.35)',
+                    width: '100%',
+                  }}
                 >
-                  {loading ? '保存中...' : (editJobId ? 'この内容で求人を更新する' : 'この内容で求人を公開する')}
+                  {loading
+                    ? '保存中...'
+                    : editJobId
+                    ? 'この内容で求人を更新する'
+                    : 'この内容で求人を公開する'}
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsPreviewMode(false)}
-                  style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '14px 24px', borderRadius: '14px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', width: '100%' }}
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    padding: '14px 24px',
+                    borderRadius: '14px',
+                    fontSize: '14px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    width: '100%',
+                  }}
                 >
                   編集画面に戻る
                 </button>
               </div>
-
             </div>
           </div>
         </div>
-
       </div>
     );
   }
@@ -886,119 +1890,253 @@ export default function NewJobPage() {
   // 【通常フォーム作成・編集画面】
   // ==========================================
   return (
-    <div style={{ minHeight: '90vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '60px 40px', boxSizing: 'border-box' }}>
-      <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '24px' }}>
+    <div
+      style={{
+        minHeight: '90vh',
+        background: '#f8fafc',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        padding: '60px 40px',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '1000px',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '32px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid #e2e8f0',
+            paddingBottom: '24px',
+          }}
+        >
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#059669', marginBottom: '6px' }}>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: '#059669',
+                marginBottom: '6px',
+              }}
+            >
               {editJobId ? 'RECRUITMENT / EDIT' : 'RECRUITMENT / CREATE'}
             </div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+            <h1
+              style={{
+                fontSize: '28px',
+                fontWeight: '800',
+                color: '#0f172a',
+                margin: 0,
+                letterSpacing: '-0.02em',
+              }}
+            >
               {editJobId ? '求人情報を編集' : '新規求人を作成'}
             </h1>
           </div>
-          <button 
+          <button
             type="button"
-            onClick={() => { window.location.href = '/dashboard/jobs'; }} 
-            style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
+            onClick={() => {
+              window.location.href = '/dashboard/jobs';
+            }}
+            style={{
+              background: '#f1f5f9',
+              color: '#475569',
+              border: '1px solid #cbd5e1',
+              padding: '10px 20px',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: '700',
+              cursor: 'pointer',
+            }}
           >
             ← 一覧に戻る
           </button>
         </div>
 
-        <form onSubmit={handleOpenPreview} style={{ background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 15px 35px -5px rgba(0, 0, 0, 0.05)', padding: '52px', display: 'flex', flexDirection: 'column', gap: '40px' }}>
-          
-          <div style={{ background: isFormComplete ? '#f0fdf4' : '#fffbeb', border: `1px solid ${isFormComplete ? '#bbf7d0' : '#fde68a'}`, padding: '18px 22px', borderRadius: '14px', fontSize: '13.5px', color: isFormComplete ? '#065f46' : '#92400e', lineHeight: '1.7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <form
+          onSubmit={handleOpenPreview}
+          style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 15px 35px -5px rgba(0, 0, 0, 0.05)',
+            padding: '52px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '40px',
+          }}
+        >
+          <div
+            style={{
+              background: isFormComplete ? '#f0fdf4' : '#fffbeb',
+              border: `1px solid ${isFormComplete ? '#bbf7d0' : '#fde68a'}`,
+              padding: '18px 22px',
+              borderRadius: '14px',
+              fontSize: '13.5px',
+              color: isFormComplete ? '#065f46' : '#92400e',
+              lineHeight: '1.7',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
             <span>
-              {isFormComplete 
-                ? '✨ 必須項目がすべて入力されています！「公開（プレビュー）する」ボタンから確認画面へお進みください。' 
+              {isFormComplete
+                ? '✨ 必須項目がすべて入力されています！「公開（プレビュー）する」ボタンから確認画面へお進みください。'
                 : '⚠️ 未入力の項目があります。すべての項目を入力するとボタンがアクティブになります。'}
             </span>
-            <span style={{ fontSize: '12px', fontWeight: '800', background: isFormComplete ? '#059669' : '#d97706', color: '#fff', padding: '4px 12px', borderRadius: '20px' }}>
+            <span
+              style={{
+                fontSize: '12px',
+                fontWeight: '800',
+                background: isFormComplete ? '#059669' : '#d97706',
+                color: '#fff',
+                padding: '4px 12px',
+                borderRadius: '20px',
+              }}
+            >
               {isFormComplete ? '入力完了 🎉' : '入力途中...'}
             </span>
           </div>
 
-          <Section1Basic 
+          <Section1Basic
             selectedJobCategories={selectedJobCategories}
             handleJobCategoryToggle={handleJobCategoryToggle}
-            title={title} setTitle={setTitle}
-            employmentType={employmentType} setEmploymentType={setEmploymentType}
-            headcount={headcount} setHeadcount={setHeadcount}
+            title={title}
+            setTitle={setTitle}
+            employmentType={employmentType}
+            setEmploymentType={setEmploymentType}
+            headcount={headcount}
+            setHeadcount={setHeadcount}
             inputStyle={inputStyle}
             hasSubmitted={hasSubmitted}
           />
 
-          <Section2Salary 
-            salaryUnit={salaryUnit} setSalaryUnit={setSalaryUnit}
-            salaryMode={salaryMode} setSalaryMode={setSalaryMode}
-            salaryFixed={salaryFixed} setSalaryFixed={setSalaryFixed}
-            salaryMin={salaryMin} setSalaryMin={setSalaryMin}
-            salaryMax={salaryMax} setSalaryMax={setSalaryMax}
-            overtimePayMode={overtimePayMode} setOvertimePayMode={setOvertimePayMode}
-            overtimePayHours={overtimePayHours} setOvertimePayHours={setOvertimePayHours}
-            overtimePayAmount={overtimePayAmount} setOvertimePayAmount={setOvertimePayAmount}
-            modelSalaries={modelSalaries} addModelSalary={addModelSalary}
-            removeModelSalary={removeModelSalary} updateModelSalary={updateModelSalary}
-            salaryDetail={salaryDetail} setSalaryDetail={setSalaryDetail}
-            inputStyle={inputStyle} salaryAmountInputStyle={salaryAmountInputStyle}
+          <Section2Salary
+            salaryUnit={salaryUnit}
+            setSalaryUnit={setSalaryUnit}
+            salaryMode={salaryMode}
+            setSalaryMode={setSalaryMode}
+            salaryFixed={salaryFixed}
+            setSalaryFixed={setSalaryFixed}
+            salaryMin={salaryMin}
+            setSalaryMin={setSalaryMin}
+            salaryMax={salaryMax}
+            setSalaryMax={setSalaryMax}
+            overtimePayMode={overtimePayMode}
+            setOvertimePayMode={setOvertimePayMode}
+            overtimePayHours={overtimePayHours}
+            setOvertimePayHours={setOvertimePayHours}
+            overtimePayAmount={overtimePayAmount}
+            setOvertimePayAmount={setOvertimePayAmount}
+            modelSalaries={modelSalaries}
+            addModelSalary={addModelSalary}
+            removeModelSalary={removeModelSalary}
+            updateModelSalary={updateModelSalary}
+            salaryDetail={salaryDetail}
+            setSalaryDetail={setSalaryDetail}
+            inputStyle={inputStyle}
+            salaryAmountInputStyle={salaryAmountInputStyle}
             centerNumberInputStyle={centerNumberInputStyle}
             hasSubmitted={hasSubmitted}
           />
 
-          <Section3Mission 
-            mission={mission} setMission={setMission}
-            dailyWork={dailyWork} setDailyWork={setDailyWork}
-            careerPath={careerPath} setCareerPath={setCareerPath}
+          <Section3Mission
+            mission={mission}
+            setMission={setMission}
+            dailyWork={dailyWork}
+            setDailyWork={setDailyWork}
+            careerPath={careerPath}
+            setCareerPath={setCareerPath}
             inputStyle={inputStyle}
             hasSubmitted={hasSubmitted}
           />
 
-          <Section4Requirements 
-            mustRequirements={mustRequirements} setMustRequirements={setMustRequirements}
-            wantRequirements={wantRequirements} setWantRequirements={setWantRequirements}
-            idealPerson={idealPerson} setIdealPerson={setIdealPerson}
+          <Section4Requirements
+            mustRequirements={mustRequirements}
+            setMustRequirements={setMustRequirements}
+            wantRequirements={wantRequirements}
+            setWantRequirements={setWantRequirements}
+            idealPerson={idealPerson}
+            setIdealPerson={setIdealPerson}
             inputStyle={inputStyle}
             hasSubmitted={hasSubmitted}
           />
 
-          <Section5Workplace 
-            locationMode={locationMode} setLocationMode={setLocationMode}
-            zipcode={zipcode} handleZipChange={handleZipChange}
-            prefAndCity={prefAndCity} setPrefAndCity={setPrefAndCity}
-            streetNumber={streetNumber} setStreetNumber={setStreetNumber}
-            buildingName={buildingName} setBuildingName={setBuildingName}
-            mobileArea={mobileArea} setMobileArea={setMobileArea}
-            accessMethod={accessMethod} setAccessMethod={setAccessMethod}
-            accessStation={accessStation} setAccessStation={setAccessStation}
-            accessMinutes={accessMinutes} setAccessMinutes={setAccessMinutes}
-            remoteWorkType={remoteWorkType} setRemoteWorkType={setRemoteWorkType}
-            remoteWorkDetail={remoteWorkDetail} setRemoteWorkDetail={setRemoteWorkDetail}
-            workSchedules={workSchedules} addWorkSchedule={addWorkSchedule}
-            removeWorkSchedule={removeWorkSchedule} updateWorkSchedule={updateWorkSchedule}
-            hours={hours} minutes={minutes}
-            overtimeChoice={overtimeChoice} setOvertimeChoice={setOvertimeChoice}
-            overtimeHours={overtimeHours} setOvertimeHours={setOvertimeHours}
-            probationChoice={probationChoice} setProbationChoice={setProbationChoice}
-            probationDuration={probationDuration} setProbationDuration={setProbationDuration}
-            probationUnit={probationUnit} setProbationUnit={setProbationUnit}
-            probationChange={probationChange} setProbationChange={setProbationChange}
-            probationChangeDetail={probationChangeDetail} setProbationChangeDetail={setProbationChangeDetail}
-            holidayType={holidayType} setHolidayType={setHolidayType}
-            holidayDetail={holidayDetail} setHolidayDetail={setHolidayDetail}
-            inputStyle={inputStyle} disabledInputStyle={disabledInputStyle}
+          <Section5Workplace
+            locationMode={locationMode}
+            setLocationMode={setLocationMode}
+            zipcode={zipcode}
+            handleZipChange={handleZipChange}
+            prefAndCity={prefAndCity}
+            setPrefAndCity={setPrefAndCity}
+            streetNumber={streetNumber}
+            setStreetNumber={setStreetNumber}
+            buildingName={buildingName}
+            setBuildingName={setBuildingName}
+            mobileArea={mobileArea}
+            setMobileArea={setMobileArea}
+            accessMethod={accessMethod}
+            setAccessMethod={setAccessMethod}
+            accessStation={accessStation}
+            setAccessStation={setAccessStation}
+            accessMinutes={accessMinutes}
+            setAccessMinutes={setAccessMinutes}
+            remoteWorkType={remoteWorkType}
+            setRemoteWorkType={setRemoteWorkType}
+            remoteWorkDetail={remoteWorkDetail}
+            setRemoteWorkDetail={setRemoteWorkDetail}
+            workSchedules={workSchedules}
+            addWorkSchedule={addWorkSchedule}
+            removeWorkSchedule={removeWorkSchedule}
+            updateWorkSchedule={updateWorkSchedule}
+            hours={hours}
+            minutes={minutes}
+            overtimeChoice={overtimeChoice}
+            setOvertimeChoice={setOvertimeChoice}
+            overtimeHours={overtimeHours}
+            setOvertimeHours={setOvertimeHours}
+            probationChoice={probationChoice}
+            setProbationChoice={setProbationChoice}
+            probationDuration={probationDuration}
+            setProbationDuration={setProbationDuration}
+            probationUnit={probationUnit}
+            setProbationUnit={setProbationUnit}
+            probationChange={probationChange}
+            setProbationChange={setProbationChange}
+            probationChangeDetail={probationChangeDetail}
+            setProbationChangeDetail={setProbationChangeDetail}
+            holidayType={holidayType}
+            setHolidayType={setHolidayType}
+            holidayDetail={holidayDetail}
+            setHolidayDetail={setHolidayDetail}
+            inputStyle={inputStyle}
+            disabledInputStyle={disabledInputStyle}
             centerNumberInputStyle={centerNumberInputStyle}
             disabledCenterNumberInputStyle={disabledCenterNumberInputStyle}
             stationInputStyle={stationInputStyle}
             hasSubmitted={hasSubmitted}
           />
 
-          <Section6CompanyCulture 
-            teamAtmosphere={teamAtmosphere} setTeamAtmosphere={setTeamAtmosphere}
-            selectedBenefits={selectedBenefits} handleBenefitToggle={handleBenefitToggle}
-            benefitsExtra={benefitsExtra} setBenefitsExtra={setBenefitsExtra}
-            smoking={smoking} setSmoking={setSmoking}
+          <Section6CompanyCulture
+            teamAtmosphere={teamAtmosphere}
+            setTeamAtmosphere={setTeamAtmosphere}
+            selectedBenefits={selectedBenefits}
+            handleBenefitToggle={handleBenefitToggle}
+            benefitsExtra={benefitsExtra}
+            setBenefitsExtra={setBenefitsExtra}
+            smoking={smoking}
+            setSmoking={setSmoking}
             selectionSteps={selectionSteps}
             addSelectionStep={addSelectionStep}
             removeSelectionStep={removeSelectionStep}
@@ -1013,34 +2151,52 @@ export default function NewJobPage() {
             hasSubmitted={hasSubmitted}
           />
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', marginTop: '20px' }}>
-            <button 
-              type="submit" 
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: '8px',
+              marginTop: '20px',
+            }}
+          >
+            <button
+              type="submit"
               disabled={!isFormComplete}
-              style={{ 
-                background: isFormComplete ? 'linear-gradient(135deg, #065f46 0%, #047857 100%)' : '#cbd5e1', 
-                color: isFormComplete ? '#ffffff' : '#64748b', 
-                border: 'none', 
-                padding: '18px 52px', 
-                borderRadius: '14px', 
-                fontSize: '17px', 
-                fontWeight: '800', 
-                cursor: isFormComplete ? 'pointer' : 'not-allowed', 
-                boxShadow: isFormComplete ? '0 10px 25px rgba(5, 150, 105, 0.3)' : 'none', 
-                transition: 'all 0.2s ease' 
+              style={{
+                background: isFormComplete
+                  ? 'linear-gradient(135deg, #065f46 0%, #047857 100%)'
+                  : '#cbd5e1',
+                color: isFormComplete ? '#ffffff' : '#64748b',
+                border: 'none',
+                padding: '18px 52px',
+                borderRadius: '14px',
+                fontSize: '17px',
+                fontWeight: '800',
+                cursor: isFormComplete ? 'pointer' : 'not-allowed',
+                boxShadow: isFormComplete
+                  ? '0 10px 25px rgba(5, 150, 105, 0.3)'
+                  : 'none',
+                transition: 'all 0.2s ease',
               }}
             >
-              {isFormComplete ? '更新内容を確認する' : 'すべての必須項目を入力してください'}
+              {isFormComplete
+                ? '更新内容を確認する'
+                : 'すべての必須項目を入力してください'}
             </button>
             {!isFormComplete && (
-              <span style={{ fontSize: '12px', fontWeight: '700', color: '#ef4444' }}>
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  color: '#ef4444',
+                }}
+              >
                 ※ 未入力の項目があるためボタンが無効化されています
               </span>
             )}
           </div>
-
         </form>
-
       </div>
     </div>
   );

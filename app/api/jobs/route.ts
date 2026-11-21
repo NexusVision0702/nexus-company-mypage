@@ -1,7 +1,14 @@
 // app/api/jobs/route.ts
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  ScanCommand,
+  DeleteCommand,
+  UpdateCommand,
+  GetCommand,
+} from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({
   region: process.env.MY_AWS_REGION || 'ap-northeast-1',
@@ -13,6 +20,149 @@ const client = new DynamoDBClient({
 
 const dynamo = DynamoDBDocumentClient.from(client);
 const tableName = 'NexusJobPostings';
+const companyTableName =
+  process.env.MY_DYNAMODB_COMPANY_TABLE || 'nexus-job-board';
+
+function buildFullAddress(obj: any): string {
+  if (!obj || typeof obj !== 'object') return '';
+
+  const prefCity = [obj.prefecture, obj.city]
+    .filter((v: any) => typeof v === 'string' && v.trim() !== '')
+    .map((v: string) => v.trim())
+    .join('');
+
+  const detailCandidates = [
+    obj.addressLine,
+    obj.addressSub,
+    obj.streetNumber,
+    obj.addressDetail,
+    obj.addressLine2,
+    obj.buildingName,
+    obj.building,
+  ]
+    .filter((v: any) => typeof v === 'string' && v.trim() !== '')
+    .map((v: string) => v.trim());
+
+  const uniqueDetails = detailCandidates.filter(
+    (v, idx, arr) => arr.indexOf(v) === idx
+  );
+  const detailStr = uniqueDetails.join('');
+
+  if (prefCity) {
+    return `${prefCity}${detailStr}`;
+  }
+
+  const rawAddress =
+    typeof obj.address === 'string' ? obj.address.trim() : '';
+  if (rawAddress && detailStr && !rawAddress.includes(detailStr)) {
+    return `${rawAddress}${detailStr}`;
+  }
+  return rawAddress || detailStr;
+}
+
+function buildPostingLocationInfo(item: any, company: any) {
+  const rawLocationName =
+    typeof item?.selectedPostingLocation === 'string' &&
+    item.selectedPostingLocation.trim() !== ''
+      ? item.selectedPostingLocation.trim()
+      : '本社';
+
+  const match = rawLocationName.match(/\((.*?)\)/);
+  const extractedAddress = match ? match[1].trim() : '';
+  const cleanName = rawLocationName.replace(/\s*\(.*?\)/g, '').trim() || '本社';
+
+  const hqName =
+    typeof company?.branchType === 'string' && company.branchType.trim() !== ''
+      ? company.branchType.trim()
+      : '本社';
+  const hqAddress = buildFullAddress(company);
+  const hqPhone =
+    (typeof company?.businessPhone === 'string' &&
+      company.businessPhone.trim()) ||
+    (typeof company?.phone === 'string' && company.phone.trim()) ||
+    '未登録';
+  const hqEmployees = company?.employeeRegular
+    ? `${company.employeeRegular}名`
+    : '非公開';
+  const hqHours = '9:00 〜 18:00';
+
+  const locations = [
+    {
+      name: hqName,
+      address: hqAddress,
+      phone: hqPhone,
+      employees: hqEmployees,
+      hours: hqHours,
+    },
+  ];
+
+  if (Array.isArray(company?.stores)) {
+    company.stores.forEach((store: any, idx: number) => {
+      if (!store || typeof store !== 'object') return;
+      const storeName =
+        typeof store.name === 'string' && store.name.trim() !== ''
+          ? store.name.trim()
+          : `${company?.companyName || '店舗'} ${idx + 1}`;
+      const storeAddr = buildFullAddress(store);
+      locations.push({
+        name: storeName,
+        address: storeAddr,
+        phone:
+          (typeof store.phone === 'string' && store.phone.trim()) || hqPhone,
+        employees:
+          (typeof store.employees === 'string' && store.employees.trim()) ||
+          '非公開',
+        hours:
+          (typeof store.hours === 'string' && store.hours.trim()) ||
+          '9:00 〜 18:00',
+      });
+    });
+  }
+
+  const matched = locations.find((loc) => loc.name === cleanName);
+
+  const resolvedAddress =
+    (matched?.address && matched.address.trim()) ||
+    extractedAddress ||
+    '住所未登録';
+
+  return {
+    name: matched?.name || cleanName,
+    address: resolvedAddress,
+    phone: matched?.phone || hqPhone || '未登録',
+    employees: matched?.employees || '非公開',
+    hours: matched?.hours || '9:00 〜 18:00',
+  };
+}
+
+async function fetchCompaniesMap(companyIds: string[]) {
+  const map = new Map<string, any>();
+  const uniqueIds = Array.from(
+    new Set(
+      companyIds.filter((id) => typeof id === 'string' && id.trim() !== '')
+    )
+  );
+
+  await Promise.all(
+    uniqueIds.map(async (id) => {
+      try {
+        const res = await dynamo.send(
+          new GetCommand({
+            TableName: companyTableName,
+            Key: { id },
+          })
+        );
+        if (res.Item) {
+          map.set(id, res.Item);
+        }
+      } catch (err) {
+        console.error(`企業データ取得エラー (companyId=${id}):`, err);
+      }
+    })
+  );
+
+  return map;
+}
 
 // ==========================================
 // 1. 求人一覧の取得 (GET)
@@ -44,16 +194,14 @@ export async function GET(request: Request) {
       return matchesCompany;
     });
 
+    const companiesMap = await fetchCompaniesMap(
+      filteredJobs.map((item: any) => item?.companyId)
+    );
+
     const jobs = filteredJobs
       .map((item: any) => {
-        const rawLocationName = item.selectedPostingLocation || '本社';
-        const match = rawLocationName.match(/\((.*?)\)/);
-        const extractedAddress = match ? match[1] : '';
-        const cleanName = rawLocationName.replace(/\s*\(.*?\)/g, '');
-
-        const fullAddress = extractedAddress ||
-          `${item.prefAndCity || ''}${item.streetNumber || ''}${item.buildingName || ''}` ||
-          '住所未登録';
+        const company = item?.companyId ? companiesMap.get(item.companyId) : null;
+        const postingLocationInfo = buildPostingLocationInfo(item, company);
 
         return {
           ...item,
@@ -62,10 +210,10 @@ export async function GET(request: Request) {
           employmentType: item.employmentType || '正社員',
           salary: item.salaryUnit
             ? `${item.salaryUnit} ${item.salaryFixed || `${item.salaryMin}〜${item.salaryMax}`}`
-            : (item.salary || '給与応相談'),
+            : item.salary || '給与応相談',
           location: item.prefAndCity
             ? `${item.prefAndCity}${item.streetNumber || ''}`
-            : (item.location || '住所未登録'),
+            : item.location || '住所未登録',
           plan: item.plan || 'スタンダードプラン',
           duration: item.duration || '3ヶ月',
           createdAt: item.createdAt || '',
@@ -76,10 +224,7 @@ export async function GET(request: Request) {
           detailPvCount: item.detailPvCount || 0,
           applicantCount: item.applicantCount || 0,
           status: item.status || '公開中',
-          postingLocationInfo: {
-            name: cleanName,
-            address: fullAddress,
-          },
+          postingLocationInfo,
         };
       })
       .sort((a: any, b: any) => {
